@@ -1,46 +1,41 @@
-# 載入需要的模組
-from __future__ import unicode_literals
 import os
-import configparser
-from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
-
-app = Flask(__name__)
-
-config = configparser.ConfigParser()
-config.read('config.ini')
-
-# LINE 聊天機器人的基本資料
-line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
-handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
+from flask import Flask, jsonify, request
 
 
-# 接收 LINE 的資訊
-@app.route("/callback", methods=['POST'])
-def callback():
-    signature = request.headers['X-Line-Signature']
+def create_app():
+    app = Flask(__name__)
 
-    body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
+    @app.route('/', methods=['GET'])
+    def index():
+        return jsonify({
+            'message': 'hao-for-you Python server is running',
+            'status': 'ok'
+        })
 
-    try:
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
+    @app.route('/health', methods=['GET'])
+    def health():
+        return jsonify({'status': 'ok'})
 
-    return 'OK'
+    @app.route('/echo', methods=['POST'])
+    def echo():
+        payload = request.get_json(silent=True)
+        if payload is None:
+            return jsonify({'error': 'Missing JSON body'}), 400
+
+        return jsonify({
+            'received': payload,
+            'message': 'Echo from hao-for-you server'
+        })
+
+    return app
 
 
-# 學說話
-@handler.add(MessageEvent, message=TextMessage)
-def echo(event):
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text=event.message.text)
-    )
+app = create_app()
 
 
-if __name__ == "__main__":
-    app.run()
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    host = os.environ.get('HOST', '0.0.0.0')
+    debug = os.environ.get('DEBUG', 'false').lower() in ('1', 'true', 'yes')
+
+    app.run(host=host, port=port, debug=debug)

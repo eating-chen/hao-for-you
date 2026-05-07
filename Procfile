@@ -1,1 +1,1 @@
-web: gunicorn app_core:app -perload
+web: gunicorn app_core:app
