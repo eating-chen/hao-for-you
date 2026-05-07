@@ -1,4 +1,5 @@
 import os
+import configparser
 from flask import Flask, jsonify, request
 
 
@@ -34,8 +35,14 @@ app = create_app()
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    host = os.environ.get('HOST', '0.0.0.0')
-    debug = os.environ.get('DEBUG', 'false').lower() in ('1', 'true', 'yes')
+    # 讀取 config.ini 設定
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    # 從環境變數或 config.ini 取得設定，環境變數優先
+    port = int(os.environ.get('PORT', config.get('server', 'port', fallback='5000')))
+    host = os.environ.get('HOST', config.get('server', 'host', fallback='0.0.0.0'))
+    debug_str = os.environ.get('DEBUG', config.get('server', 'debug', fallback='false'))
+    debug = debug_str.lower() in ('1', 'true', 'yes')
 
     app.run(host=host, port=port, debug=debug)
