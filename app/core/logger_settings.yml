@@ -1,0 +1,13 @@
+info:
+  log_file: "./logs/info.log"
+  level: "INFO"
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  maxBytes: 104857600  # 100 MB
+  backupCount: 20
+
+error:
+  log_file: "./logs/error.log"
+  level: "ERROR"
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  maxBytes: 104857600  # 100 MB
+  backupCount: 20
