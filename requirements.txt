@@ -1,3 +1,5 @@
 fastapi
 uvicorn[standard]
 gunicorn
+line-bot-sdk
+ollama
