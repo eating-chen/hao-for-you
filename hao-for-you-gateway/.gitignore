@@ -1,0 +1,15 @@
+# Environment variables
+.env
+
+# Build output
+target/
+
+# IDE
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# Database
+*.db
