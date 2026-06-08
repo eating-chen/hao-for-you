@@ -2,11 +2,7 @@ package com.haoforyou.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haoforyou.service.ContextService;
-import com.haoforyou.service.IntentService;
-import com.haoforyou.skill.Skill;
-import com.haoforyou.skill.SkillContext;
-import com.haoforyou.skill.SkillRegistry;
-import com.haoforyou.skill.SkillResult;
+import com.haoforyou.service.HaoServiceClient;
 import com.linecorp.bot.messaging.client.MessagingApiClient;
 import com.linecorp.bot.messaging.model.ReplyMessageRequest;
 import com.linecorp.bot.messaging.model.TextMessage;
@@ -15,6 +11,7 @@ import com.linecorp.bot.webhook.model.CallbackRequest;
 import com.linecorp.bot.webhook.model.Event;
 import com.linecorp.bot.webhook.model.MessageEvent;
 import com.linecorp.bot.webhook.model.TextMessageContent;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -24,8 +21,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 
+@RequiredArgsConstructor
 @RestController
 public class LineBotController {
 
@@ -35,27 +32,11 @@ public class LineBotController {
     private final LineBotProperties lineBotProperties;
     private final ObjectMapper objectMapper;
     private final ContextService contextService;
-    private final IntentService intentService;
-    private final SkillRegistry skillRegistry;
-
-    public LineBotController(
-            MessagingApiClient messagingApiClient,
-            LineBotProperties lineBotProperties,
-            ObjectMapper objectMapper,
-            ContextService contextService,
-            IntentService intentService,
-            SkillRegistry skillRegistry) {
-        this.messagingApiClient = messagingApiClient;
-        this.lineBotProperties = lineBotProperties;
-        this.objectMapper = objectMapper;
-        this.contextService = contextService;
-        this.intentService = intentService;
-        this.skillRegistry = skillRegistry;
-    }
+    private final HaoServiceClient haoServiceClient;
 
     @PostMapping("/webhook")
     public ResponseEntity<Void> callback(
-            @RequestHeader("X-Line-Signature") String signature,
+            @RequestHeader("x-line-signature") String signature,
             @RequestBody byte[] body) {
 
         if (!isValidSignature(signature, body)) {
@@ -97,18 +78,11 @@ public class LineBotController {
 
         try {
             contextService.getOrCreateUser(userId);
-            List<Map<String, String>> history = List.of();
-            IntentService.RouteResult route = intentService.route(userText, history);
-
-            Skill skill = skillRegistry.getByName(route.skillName())
-                    .orElseGet(() -> skillRegistry.getByName("general_chat").orElseThrow());
-
-            SkillContext ctx = new SkillContext(userId, userText, history, route.params());
-            SkillResult result = skill.execute(ctx);
+            String reply = haoServiceClient.generate(userText);
 
             messagingApiClient.replyMessage(new ReplyMessageRequest(
                     replyToken,
-                    List.of(new TextMessage(result.replyText())),
+                    List.of(new TextMessage(reply)),
                     false
             ));
         } catch (Exception e) {

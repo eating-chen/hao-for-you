@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AppProperties(
     Google google,
     Conversation conversation,
-    String systemPrompt
+    String systemPrompt,
+    String serviceUrl
 ) {
     public record Google(
         String clientId,
