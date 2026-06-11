@@ -76,16 +76,4 @@ public class AuthController {
                 """);
         }
     }
-
-    /**
-     * Health check
-     * GET /
-     */
-    @GetMapping("/")
-    public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(Map.of(
-            "message", "hao-for-you Java server is running",
-            "status",  "ok"
-        ));
-    }
 }

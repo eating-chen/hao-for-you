@@ -1,5 +1,5 @@
 import os
-from app.service.logger_service import logger, error_logger
+from app.service.logger_service import logger
 
 
 def _getenv(*keys, default=""):

@@ -12,7 +12,7 @@ from linebot.v3.webhooks import MessageEvent, TextMessageContent
 
 from app.schemas.cahtbot_schema import EchoInfoSchema
 from app.service.util_service import prompt_template
-from app.service.logger_service import logger, error_logger
+from app.service.logger_service import logger
 from app.manager.modelManager import llm
 from app.manager.intentManager import route_intent
 from app.skills.registry import SkillRegistry

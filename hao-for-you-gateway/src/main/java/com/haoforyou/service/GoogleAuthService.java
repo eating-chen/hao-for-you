@@ -36,6 +36,7 @@ import java.util.Optional;
 public class GoogleAuthService {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleAuthService.class);
+    // Google OAuth 需要的權限清單
     private static final List<String> SCOPES = Arrays.asList(
         CalendarScopes.CALENDAR,
         "https://www.googleapis.com/auth/gmail.readonly",
@@ -77,6 +78,7 @@ public class GoogleAuthService {
     /** 用 authorization code 換 tokens，存入 DB */
     @Transactional
     public void exchangeAndSave(String code, String lineUserId) throws Exception {
+        // google驗證授權，並回傳token
         GoogleAuthorizationCodeFlow flow = buildFlow();
         TokenResponse tokenResponse = flow.newTokenRequest(code)
             .setRedirectUri(appProperties.google().redirectUri())
@@ -144,6 +146,7 @@ public class GoogleAuthService {
         return false;
     }
 
+    // 主動推播 LINE 訊息給使用者
     public void pushLineMessage(String lineUserId, String text) {
         try {
             messagingApiClient.pushMessage(
