@@ -76,7 +76,6 @@ Hao For You 與 LINE Bot 串接之 gateway，負責管理對外 API、記錄使�
 cp .env.example .env
 ```
 
-<!-- AUTO:START:ENV_VARS -->
 | 變數名稱 | 必填 | 說明 |
 |---|---|---|
 | `LINE_CHANNEL_SECRET` | ✅ | LINE Bot Channel Secret |
@@ -88,7 +87,6 @@ cp .env.example .env
 | `OLLAMA_BASE_URL` | | Ollama 服務位址，dev 預設 `http://localhost:11434` |
 | `JASYPT_ENCRYPTOR_PASSWORD` | ✅ | Java 加密用key |
 | `PORT` | | 伺服器 port，預設 `8008` |
-<!-- AUTO:END:ENV_VARS -->
 
 ---
 
