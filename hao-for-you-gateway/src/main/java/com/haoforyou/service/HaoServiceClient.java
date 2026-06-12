@@ -35,12 +35,13 @@ public class HaoServiceClient {
     }
 
     /**
-     * 呼叫 service 的 POST /test_ollama。
+     * 呼叫 service 的 LLM 服務，路徑帶訂。
      * service 端會加上 system prompt 後送給 Ollama，適合一般對話。
      *
      * @param userMessage 使用者原始訊息
      * @return LLM 回覆文字
      */
+    // TODO 連結llm server的路徑
     public String generate(String userMessage) {
         try {
             String body = objectMapper.writeValueAsString(Map.of("prompt", userMessage));

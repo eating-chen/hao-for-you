@@ -41,8 +41,8 @@ Hao For You 與 LINE Bot 串接之 gateway，負責管理對外 API、記錄使�
 |---|---|---|
 | GET | `/health` | 健康檢查 |
 | POST | `/webhook` | LINE Webhook callback |
-| GET | `/auth/google` | 產生 Google OAuth 授權連結 |
-| GET | `/auth/google/callback` | Google OAuth callback（換 token、存 DB、推播通知） |
+| GET | `/google/auth` | 產生 Google OAuth 授權連結 |
+| GET | `/google/auth/callback` | Google OAuth callback（換 token、存 DB、推播通知） |
 
 ### 資料庫 Schema（Postgresql）
 
@@ -82,7 +82,7 @@ cp .env.example .env
 | `LINE_CHANNEL_ACCESS_TOKEN` | ✅ | LINE Bot Channel Access Token |
 | `GOOGLE_CLIENT_ID` | ✅ | Google Cloud OAuth 用戶端 ID |
 | `GOOGLE_CLIENT_SECRET` | ✅ | Google Cloud OAuth 用戶端密鑰 |
-| `GOOGLE_REDIRECT_URI` | ✅ | OAuth callback URL（開發用 `http://localhost:8008/auth/google/callback`） |
+| `GOOGLE_REDIRECT_URI` | ✅ | OAuth callback URL（開發用 `http://localhost:8080/google/auth/callback`） |
 | `OLLAMA_MODEL` | | AI 模型名稱，預設 `qwen3.5:0.8b` |
 | `OLLAMA_BASE_URL` | | Ollama 服務位址，dev 預設 `http://localhost:11434` |
 | `JASYPT_ENCRYPTOR_PASSWORD` | ✅ | Java 加密用key |

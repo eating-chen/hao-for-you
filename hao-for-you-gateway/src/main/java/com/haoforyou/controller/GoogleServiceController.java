@@ -10,13 +10,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/auth")
-public class AuthController {
+@RequestMapping("/google")
+public class GoogleServiceController {
 
-    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+    private static final Logger log = LoggerFactory.getLogger(GoogleServiceController.class);
     private final GoogleAuthService googleAuthService;
 
-    public AuthController(GoogleAuthService googleAuthService) {
+    public GoogleServiceController(GoogleAuthService googleAuthService) {
         this.googleAuthService = googleAuthService;
     }
 
@@ -24,7 +24,7 @@ public class AuthController {
      * 產生 Google OAuth 授權連結
      * GET /auth/google?line_user_id=xxx
      */
-    @GetMapping("/google")
+    @GetMapping("/auth")
     public ResponseEntity<Map<String, String>> startAuth(
         @RequestParam("line_user_id") String lineUserId
     ) {
@@ -36,7 +36,7 @@ public class AuthController {
      * Google OAuth callback
      * GET /auth/google/callback?code=xxx&state=line_user_id
      */
-    @GetMapping(value = "/google/callback", produces = MediaType.TEXT_HTML_VALUE)
+    @GetMapping(value = "/auth/callback", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> googleCallback(
         @RequestParam("code")  String code,
         @RequestParam("state") String lineUserId

@@ -18,4 +18,4 @@ if __name__ == "__main__":
     else:
         os.environ["ENV"] = "dev"
 
-    uvicorn.run("app.main:app", host=os.getenv("HOST", "0.0.0.0"), port=int(os.getenv("PORT", "8008")))
+    uvicorn.run("app.main:app", host=os.getenv("HOST", "0.0.0.0"), port=int(os.getenv("PORT", "8080")))
