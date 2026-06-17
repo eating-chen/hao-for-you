@@ -1,46 +1,37 @@
 import os
-from app.service.logger_service import logger, error_logger
-
-
-def _getenv(*keys, default=""):
-    """get the first non-empty environment value"""
-    for key in keys:
-        value = os.getenv(key)
-        if value:
-            return value.strip()
-    return default
-
+from app.core.prompt_constant import SYSTEM_PROMPT
 
 class BaseConfig:
-    class LineConfig:
-        """line bot config"""
-        channel_secret = _getenv("LINE_CHANNEL_SECRET", "channel_secret")
-        channel_access_token = _getenv(
-            "LINE_CHANNEL_ACCESS_TOKEN",
-            "channel_access_token",
-        )
-        logger.info(
-            "LineConfig loaded - channel_secret: %s, channel_access_token: %s",
-            bool(channel_secret),
-            bool(channel_access_token),
-        )
+
+    # class GoogleCalendarConfig:
+    #     SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+    #     TOKEN_FILE = Path(os.getenv("GOOGLE_TOKEN_FILE", ".data/google_calendar_minimal_token.json"))
+    #     CREDENTIALS_FILE = Path(os.getenv("DEFAULT_CREDENTIALS_FILE", ""))
+    #     TIMEZONE = "Asia/Taipei"
+    # class LineConfig:
+    #     """line bot config"""
+    #     channel_secret = os.getenv("LINE_CHANNEL_SECRET", "channel_secret")
+    #     channel_access_token = os.getenv(
+    #         "LINE_CHANNEL_ACCESS_TOKEN",
+    #         "channel_access_token",
+    #     )
+
+    class DatabaseConfig:
+        """database config"""
+        DB_PATH = "chat_memory.db"
+        DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
     class ModelConfig:
         """model config"""
-        system_prompt = (
-            "你叫 Hao，是一位 AI 助手\n"
-            "請用繁體中文回答，語氣友善、專業、簡潔\n"
-            "除非使用者要求，否則不要提供範例、不要重複問題、不要延伸補充\n"
-            "你目前能幫助使用者解決的問題如下:\n"
-            "1. 提供資訊: 根據使用者的問題，提供相關的資訊\n"
-        )
-        ollama_model = os.getenv("OLLAMA_MODEL", "qwen3.5:0.8b")
+        system_prompt = SYSTEM_PROMPT
+        ollama_model = os.getenv("OLLAMA_MODEL", "qwen3.5:4b")
         timeout = 10
         generate_config = {
             'temperature': 0.1,
             'num_predict': 256,
             'top_p': 0.95,
             'repeat_penalty': 1.15,
+            'reasoning': False,
         }
 
 
