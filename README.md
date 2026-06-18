@@ -73,7 +73,7 @@ HOST=
 PORT=
 DEBUG=
 ENV=prod
-OLLAMA_MODEL=qwen3.5:0.4b
+OLLAMA_MODEL=qwen3.5:4b
 ```
 
 - Docker Compose 部署時，API container 會使用：

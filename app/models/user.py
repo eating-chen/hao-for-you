@@ -29,7 +29,8 @@ class User(Base):
     )
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
-    sessions: Mapped[List["ConversationSession"]] = relationship(
+    sessions = relationship(
+        'ConversationSession',
         back_populates="user",
         cascade="all, delete-orphan",
     )
