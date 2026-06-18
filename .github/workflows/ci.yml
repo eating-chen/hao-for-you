@@ -78,9 +78,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
         run: |
-          echo "SONAR_ORGANIZATION prefix: ${SONAR_ORGANIZATION:0:4}..."
-          echo "SONAR_PROJECT_KEY prefix: ${SONAR_PROJECT_KEY:0:4}..."
+          echo "SONAR_ORGANIZATION : ${SONAR_ORGANIZATION}"
+          echo "SONAR_PROJECT_KEY : ${SONAR_PROJECT_KEY}"
           mvn sonar:sonar --no-transfer-progress \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }} \
