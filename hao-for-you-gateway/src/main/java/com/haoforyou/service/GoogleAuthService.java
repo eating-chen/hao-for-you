@@ -10,6 +10,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.CalendarScopes;
+import com.google.api.services.gmail.Gmail;
 import com.haoforyou.config.AppProperties;
 import com.haoforyou.model.GoogleToken;
 import com.haoforyou.repository.GoogleTokenRepository;
@@ -107,7 +108,27 @@ public class GoogleAuthService {
 
     /** 用已儲存的 token 建立 Calendar service */
     public Calendar buildCalendarService(GoogleToken token) throws Exception {
-        @SuppressWarnings("deprecation")
+        GoogleCredential credential = buildCredential(token);
+        return new Calendar.Builder(
+            GoogleNetHttpTransport.newTrustedTransport(),
+            GsonFactory.getDefaultInstance(),
+            credential
+        ).setApplicationName("hao-for-you").build();
+    }
+
+    /** 用已儲存的 token 建立 Gmail service */
+    public Gmail buildGmailService(GoogleToken token) throws Exception {
+        GoogleCredential credential = buildCredential(token);
+        return new Gmail.Builder(
+            GoogleNetHttpTransport.newTrustedTransport(),
+            GsonFactory.getDefaultInstance(),
+            credential
+        ).setApplicationName("hao-for-you").build();
+    }
+
+    /** 建立並在必要時自動 refresh 的 GoogleCredential */
+    @SuppressWarnings("deprecation")
+    private GoogleCredential buildCredential(GoogleToken token) throws Exception {
         GoogleCredential credential = new GoogleCredential.Builder()
             .setTransport(GoogleNetHttpTransport.newTrustedTransport())
             .setJsonFactory(GsonFactory.getDefaultInstance())
@@ -116,21 +137,14 @@ public class GoogleAuthService {
             .setAccessToken(token.getAccessToken())
             .setRefreshToken(token.getRefreshToken());
 
-        // 若過期則自動 refresh 並更新 DB
         if (token.getTokenExpiry() != null && token.getTokenExpiry().isBefore(LocalDateTime.now())) {
             credential.refreshToken();
             token.setAccessToken(credential.getAccessToken());
-            LocalDateTime newExpiry = LocalDateTime.now()
-                .plusSeconds(credential.getExpiresInSeconds());
-            token.setTokenExpiry(newExpiry);
+            token.setTokenExpiry(LocalDateTime.now().plusSeconds(credential.getExpiresInSeconds()));
             tokenRepository.save(token);
         }
 
-        return new Calendar.Builder(
-            GoogleNetHttpTransport.newTrustedTransport(),
-            GsonFactory.getDefaultInstance(),
-            credential
-        ).setApplicationName("hao-for-you").build();
+        return credential;
     }
 
     public Optional<GoogleToken> getToken(String lineUserId) {

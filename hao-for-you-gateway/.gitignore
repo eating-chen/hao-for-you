@@ -13,3 +13,6 @@ target/
 
 # Database
 *.db
+
+# Skill
+.claude/

@@ -81,11 +81,16 @@
             <scope>compile</scope>
         </dependency>
 
-        <!-- Google OAuth2 + Calendar -->
+        <!-- Google OAuth2 + Calendar + Gmail -->
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
             <version>2.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.apis</groupId>
+            <artifactId>google-api-services-gmail</artifactId>
+            <version>v1-rev20220404-2.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.oauth-client</groupId>
