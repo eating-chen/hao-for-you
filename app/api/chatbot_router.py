@@ -44,7 +44,7 @@ def echo(prompt: str):
     response_model=ChatResponse,
     summary="回覆使用者的問題"
 )
-def test_ollama(request: Request, body: ChatRequest):
+def chat(request: Request, body: ChatRequest):
 
     if request.app.state.graph is None:
         try:

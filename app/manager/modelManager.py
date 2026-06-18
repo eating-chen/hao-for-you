@@ -34,12 +34,10 @@ class OllamaModelManager:
         try:
             answer = run_chat(
                 graph=request.app.state.graph,
-                user_id=body.app_user_id,
-                session_id=body.session_id,
+                user_id=body.user_id,
+                session_id=body.platform + "-" + body.user_id,  # ex: line-U123456789
                 user_input=body.message,
-                platform=body.platform,
-                platform_user_id=body.platform_user_id,
-                display_name=body.display_name,
+                platform=body.platform
             )
         #     response = llm_with_tools.invoke(messages)
         #     print("\n=== FIRST MODEL RESPONSE ===")
@@ -66,16 +64,18 @@ class OllamaModelManager:
         #         print("\n=== FINAL MODEL RESPONSE ===")
         #         print(response.content)
             data = ChatResponse(
-                app_user_id=body.app_user_id,
-                session_id=body.session_id,
+                success=True,
+                user_id=body.user_id,
+                session_id=body.platform + "-" + body.user_id,
                 platform=body.platform,
                 response=answer,
             )
         except Exception as e:
             error_logger.exception(f"Error calling Ollama API: {e}")
             data = ChatResponse(
-                app_user_id=body.app_user_id,
-                session_id=body.session_id,
+                success=False,
+                user_id=body.user_id,
+                session_id=body.platform + "-" + body.user_id,
                 platform=body.platform,
                 response="抱歉，我現在暫時無法連線到 AI 服務，請稍後再試。",
             )

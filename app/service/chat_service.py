@@ -33,7 +33,6 @@ def load_memory(state: State) -> State:
     print("\n-------> ENTERING load_memory")
 
     platform = state.get("platform", "line")
-    platform_user_id = state.get("platform_user_id") or state["user_id"]
 
     async def _load_memory():
         await db_manager.init_db()
@@ -41,9 +40,7 @@ def load_memory(state: State) -> State:
             await ensure_user(
                 db,
                 user_id=state["user_id"],
-                display_name=state.get("display_name"),
                 platform=platform,
-                platform_user_id=platform_user_id,
             )
             await ensure_session(
                 db,
@@ -67,8 +64,6 @@ def load_memory(state: State) -> State:
         session_id=state["session_id"],
         user_input=state["user_input"],
         platform=platform,
-        platform_user_id=platform_user_id,
-        display_name=state.get("display_name"),
         summary=summary,
         messages=recent_messages,
         ai_response=None,
@@ -91,8 +86,6 @@ def ask_question(state: State) -> State:
         session_id=state["session_id"],
         user_input=state["user_input"],
         platform=state.get("platform", "line"),
-        platform_user_id=state.get("platform_user_id", ""),
-        display_name=state.get("display_name"),
         summary=state.get("summary", ""),
         messages=[
             HumanMessage(content=state["user_input"])
@@ -140,8 +133,6 @@ def chatbot(chat_model: Any):
             session_id=state["session_id"],
             user_input=state["user_input"],
             platform=state.get("platform", "line"),
-            platform_user_id=state.get("platform_user_id", ""),
-            display_name=state.get("display_name"),
             summary=summary,
             messages=[response],
             ai_response=response.content,
@@ -255,8 +246,6 @@ def summarize_messages(chat_model: Any):
             session_id=state["session_id"],
             user_input=state["user_input"],
             platform=state.get("platform", "line"),
-            platform_user_id=state.get("platform_user_id", ""),
-            display_name=state.get("display_name"),
             summary=response.content,
             messages=[],
             ai_response=state["ai_response"],
@@ -418,8 +407,6 @@ def run_chat(
     session_id: str,
     user_input: str,
     platform: str = "line",
-    platform_user_id: Optional[str] = None,
-    display_name: Optional[str] = None,
 ) -> str:
     result = graph.invoke(
         {
@@ -427,8 +414,6 @@ def run_chat(
             "session_id": session_id,
             "user_input": user_input,
             "platform": platform,
-            "platform_user_id": platform_user_id or user_id,
-            "display_name": display_name,
             "summary": "",
             "messages": [],
             "ai_response": None,

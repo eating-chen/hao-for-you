@@ -5,16 +5,14 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    app_user_id: str = Field(..., description="Java users.id")
+    user_id: str = Field(..., description="Java users.id")
     platform: str = Field(default="line", description="line / web / discord / telegram")
-    platform_user_id: str = Field(..., description="例如 LINE 的 line_user_id")
-    session_id: str = Field(..., description="例如 line-U123456789")
     message: str = Field(..., description="使用者訊息")
-    display_name: Optional[str] = Field(default=None)
 
 
 class ChatResponse(BaseModel):
-    app_user_id: str
+    success: bool
+    user_id: str
     session_id: str
     platform: str
     response: str
@@ -28,7 +26,7 @@ class MessageResponse(BaseModel):
 
 
 class SessionResponse(BaseModel):
-    app_user_id: str
+    user_id: str
     session_id: str
     platform: str
     status: str
@@ -37,12 +35,10 @@ class SessionResponse(BaseModel):
 
 
 class State(MessagesState):
-    user_id: str = Field(..., description="Java users.id / app_user_id")
+    user_id: str = Field(..., description="users_id")
     session_id: str = Field(..., description="對話 Session ID")
     user_input: str = Field(..., description="這次使用者輸入")
     platform: str = Field(default="line", description="line / web / discord / telegram")
-    platform_user_id: str = Field(default="", description="平台使用者 ID")
-    display_name: Optional[str] = Field(default=None, description="使用者顯示名稱")
     summary: str = Field(default="", description="目前對話摘要")
     ai_response: Optional[str] = Field(default=None, description="AI 回覆")
 

@@ -14,26 +14,18 @@ from app.models.conversation_messages import ConversationMessage
 async def ensure_user(
     db: Session,
     user_id: str,
-    display_name: Optional[str] = None,
     platform: str = "line",
-    platform_user_id: Optional[str] = None,
 ) -> int:
-    platform_user_id = platform_user_id or user_id
 
-    user = await db.scalar(select(User).where(User.app_user_id == user_id))
+    user = await db.scalar(select(User).where(User.user_id == user_id))
     if user is None:
         user = User(
-            app_user_id=user_id,
+            user_id=user_id,
             platform=platform,
-            platform_user_id=platform_user_id,
-            display_name=display_name,
         )
         db.add(user)
     else:
         user.platform = platform
-        user.platform_user_id = platform_user_id
-        if display_name is not None:
-            user.display_name = display_name
         user.updated_at = datetime.utcnow()
 
     await db.commit()
@@ -47,7 +39,7 @@ async def ensure_session(
     session_id: str,
     platform: str = "line",
 ) -> int:
-    user = await db.scalar(select(User).where(User.app_user_id == user_id))
+    user = await db.scalar(select(User).where(User.user_id == user_id))
     if user is None:
         raise ValueError(f"ai_user not found: {user_id}")
 
