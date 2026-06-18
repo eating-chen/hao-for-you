@@ -64,6 +64,26 @@
 >> bash ./deployment/init.sh
 ```
 
+- 可以透過 http://localhost:8008/docs 去看 api 文件(FastAPI seagger UI)
+    - /v1/chat:
+        - request
+            ```
+            {
+                "user_id": "U1235545",
+                "platform": "line",
+                "message": "hello 你好"
+            }
+            ```
+        - response
+            ```
+            {
+                "success": true,
+                "user_id": "U1235545",
+                "session_id": "line-U1235545",
+                "platform": "line",
+                "response": "您好！我是 Hao AI，您的生活智慧助手。有什麼我可以幫您解決的問題嗎？例如新增 Google Calendar 行程等。"
+            }
+            ```
 
 ## 環境變數
 
