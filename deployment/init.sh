@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-MODEL="${1:-${OLLAMA_MODEL:-qwen3.5:0.8b}}"
+MODEL="${1:-${OLLAMA_MODEL:-qwen3.5:4b}}"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yaml}"
 OLLAMA_SERVICE="${OLLAMA_SERVICE:-ollama}"
