@@ -56,6 +56,15 @@
 - uv
 - Docker / Docker Compose
 
+## 快速開始
+- 建立`.env`，參考"環境變數" part
+- 啟動
+```
+>> cd hao-for-you
+>> bash ./deployment/init.sh
+```
+
+
 ## 環境變數
 
 - 本地開發可以建立 `.env`，參考 .env.example 的範例創建一個 .env file：
@@ -63,10 +72,8 @@
 HOST=
 PORT=
 DEBUG=
-ENV=dev
-LINE_CHANNEL_SECRET=
-LINE_CHANNEL_ACCESS_TOKEN=
-OLLAMA_MODEL=qwen3.5:0.8b
+ENV=prod
+OLLAMA_MODEL=qwen3.5:0.4b
 ```
 
 - Docker Compose 部署時，API container 會使用：
