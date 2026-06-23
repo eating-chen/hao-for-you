@@ -43,6 +43,10 @@ Hao For You 與 LINE Bot 串接之 gateway，負責管理對外 API、記錄使�
 | POST | `/webhook` | LINE Webhook callback |
 | GET | `/google/auth` | 產生 Google OAuth 授權連結 |
 | GET | `/google/auth/callback` | Google OAuth callback（換 token、存 DB、推播通知） |
+| POST | `/google/mail/query` | 查詢 Gmail 郵件 |
+| POST | `/google/calendar/query` | 查詢 Google Calendar 事件 |
+| POST | `/google/calendar/create` | 新增 Google Calendar 事件 |
+| POST | `/google/calendar/modify` | 修改 Google Calendar 事件 |
 
 ### 資料庫 Schema（Postgresql）
 
@@ -82,7 +86,7 @@ cp .env.example .env
 | `LINE_CHANNEL_ACCESS_TOKEN` | ✅ | LINE Bot Channel Access Token |
 | `GOOGLE_CLIENT_ID` | ✅ | Google Cloud OAuth 用戶端 ID |
 | `GOOGLE_CLIENT_SECRET` | ✅ | Google Cloud OAuth 用戶端密鑰 |
-| `GOOGLE_REDIRECT_URI` | ✅ | OAuth callback URL（開發用 `http://localhost:8080/google/auth/callback`） |
+| `GOOGLE_REDIRECT_URI` | ✅ | OAuth callback URL（開發用 `http://localhost:8008/google/auth/callback`） |
 | `OLLAMA_MODEL` | | AI 模型名稱，預設 `qwen3.5:0.8b` |
 | `OLLAMA_BASE_URL` | | Ollama 服務位址，dev 預設 `http://localhost:11434` |
 | `JASYPT_ENCRYPTOR_PASSWORD` | ✅ | Java 加密用key |

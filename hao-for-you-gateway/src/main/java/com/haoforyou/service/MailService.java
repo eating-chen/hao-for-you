@@ -3,6 +3,7 @@ package com.haoforyou.service;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
+import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
 import com.haoforyou.dto.MailData;
 import com.haoforyou.dto.MessageSummary;
@@ -10,7 +11,9 @@ import com.haoforyou.dto.GoogleApiRequest;
 import com.haoforyou.model.GoogleToken;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -40,8 +43,7 @@ public class MailService {
         List<MessageSummary> summaries = new ArrayList<>();
         for (Message ref : listResponse.getMessages()) {
             Message msg = gmail.users().messages().get("me", ref.getId())
-                .setFormat("metadata")
-                .setMetadataHeaders(List.of("Subject", "From", "Date"))
+                .setFormat("full")
                 .execute();
             summaries.add(toSummary(msg));
         }
@@ -59,21 +61,49 @@ public class MailService {
 
     private MessageSummary toSummary(Message msg) {
         String subject = "";
-        String from = "";
+        String sender = "";
         String date = "";
 
         if (msg.getPayload() != null && msg.getPayload().getHeaders() != null) {
             for (MessagePartHeader h : msg.getPayload().getHeaders()) {
                 switch (h.getName()) {
                     case "Subject" -> subject = h.getValue();
-                    case "From" -> from = h.getValue();
+                    case "From" -> sender = h.getValue();
                     case "Date" -> date = h.getValue();
                 }
             }
         }
 
-        return new MessageSummary(msg.getId(), subject, from, date,
-            msg.getSnippet() != null ? msg.getSnippet() : "");
+        String snippet = msg.getSnippet() != null ? msg.getSnippet() : "";
+        String body = extractBody(msg.getPayload());
+
+        return new MessageSummary(msg.getId(), subject, sender, date, snippet, body);
+    }
+
+    private String extractBody(MessagePart part) {
+        if (part == null) {
+            return "";
+        }
+
+        if ("text/plain".equals(part.getMimeType())
+                && part.getBody() != null
+                && part.getBody().getData() != null) {
+            return new String(
+                Base64.getUrlDecoder().decode(part.getBody().getData()),
+                StandardCharsets.UTF_8
+            );
+        }
+
+        if (part.getParts() != null) {
+            for (MessagePart sub : part.getParts()) {
+                String result = extractBody(sub);
+                if (!result.isEmpty()) {
+                    return result;
+                }
+            }
+        }
+
+        return "";
     }
 
     private boolean hasText(String s) {

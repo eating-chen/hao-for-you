@@ -63,6 +63,10 @@ public class HaoServiceClient {
             }
             return raw;
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("HaoServiceClient.generate interrupted: {}", e.getMessage(), e);
+            return "抱歉，我現在暫時無法連線到 AI 服務，請稍後再試。";
         } catch (Exception e) {
             log.error("HaoServiceClient.generate error: {}", e.getMessage(), e);
             return "抱歉，我現在暫時無法連線到 AI 服務，請稍後再試。";

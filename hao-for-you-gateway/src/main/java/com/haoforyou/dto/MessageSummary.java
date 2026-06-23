@@ -5,5 +5,6 @@ public record MessageSummary(
     String subject,
     String from,
     String date,
-    String snippet
+    String snippet,
+    String body
 ) {}

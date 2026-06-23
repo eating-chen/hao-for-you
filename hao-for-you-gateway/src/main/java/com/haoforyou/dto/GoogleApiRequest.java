@@ -13,13 +13,17 @@ public class GoogleApiRequest {
     private String eventId;
 
     private String title;
+    
     private String date;
+
+    @JsonProperty("date_to")
+    private String dateTo;
 
     @JsonProperty("start_time")
     private String startTime;
 
-    @JsonProperty("duration_minutes")
-    private Integer durationMinutes;
+    @JsonProperty("end_time")
+    private String endTime;
 
     private String description;
 

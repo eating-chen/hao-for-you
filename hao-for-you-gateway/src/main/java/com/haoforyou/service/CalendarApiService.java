@@ -20,7 +20,7 @@ public class CalendarApiService {
 
     private static final String TIMEZONE = "Asia/Taipei";
     private static final ZoneId ZONE = ZoneId.of(TIMEZONE);
-    private static final int DEFAULT_DURATION_MINUTES = 60;
+    private static final String PRIMARY_CALENDAR = "primary";
 
     private final GoogleAuthService googleAuthService;
 
@@ -31,17 +31,25 @@ public class CalendarApiService {
     public CalendarData query(GoogleToken token, GoogleApiRequest req) throws Exception {
         Calendar service = googleAuthService.buildCalendarService(token);
 
-        Calendar.Events.List request = service.events().list("primary")
+        Calendar.Events.List request = service.events().list(PRIMARY_CALENDAR)
             .setMaxResults(req.getLimit() != null ? req.getLimit() : 5)
             .setOrderBy("startTime")
             .setSingleEvents(true);
 
-        if (hasText(req.getDate())) {
+        if (hasText(req.getDate()) && hasText(req.getDateTo())) {
+            // 查詢日期區間（date 為起始，dateTo 為結束）
+            ZonedDateTime rangeStart = LocalDate.parse(req.getDate()).atStartOfDay(ZONE);
+            ZonedDateTime rangeEnd = LocalDate.parse(req.getDateTo()).plusDays(1).atStartOfDay(ZONE);
+            request.setTimeMin(toDateTime(rangeStart));
+            request.setTimeMax(toDateTime(rangeEnd));
+        } else if (hasText(req.getDate())) {
+            // 查詢單一日期
             ZonedDateTime dayStart = LocalDate.parse(req.getDate()).atStartOfDay(ZONE);
             ZonedDateTime dayEnd = dayStart.plusDays(1);
             request.setTimeMin(toDateTime(dayStart));
             request.setTimeMax(toDateTime(dayEnd));
         } else {
+            // 未指定日期，從現在起往後查
             request.setTimeMin(new DateTime(System.currentTimeMillis()));
         }
 
@@ -59,6 +67,7 @@ public class CalendarApiService {
     public CalendarData create(GoogleToken token, GoogleApiRequest req) throws Exception {
         Calendar service = googleAuthService.buildCalendarService(token);
 
+        // 組成要新增到日曆的物件
         Event event = new Event().setSummary(req.getTitle());
         if (hasText(req.getDescription())) event.setDescription(req.getDescription());
 
@@ -68,56 +77,33 @@ public class CalendarApiService {
             event.setEnd(new EventDateTime().setDate(date));
         } else {
             ZonedDateTime start = buildZonedDateTime(req.getDate(), req.getStartTime());
-            ZonedDateTime end = start.plusMinutes(
-                req.getDurationMinutes() != null ? req.getDurationMinutes() : DEFAULT_DURATION_MINUTES
-            );
+            ZonedDateTime end = buildZonedDateTime(req.getDate(), req.getEndTime());
             event.setStart(new EventDateTime().setDateTime(toDateTime(start)).setTimeZone(TIMEZONE));
             event.setEnd(new EventDateTime().setDateTime(toDateTime(end)).setTimeZone(TIMEZONE));
         }
 
-        Event created = service.events().insert("primary", event).execute();
+        Event created = service.events().insert(PRIMARY_CALENDAR, event).execute();
         return new CalendarData(List.of(toSummary(created, "created")));
     }
 
     public CalendarData modify(GoogleToken token, GoogleApiRequest req) throws Exception {
         Calendar service = googleAuthService.buildCalendarService(token);
-        Event existing = service.events().get("primary", req.getEventId()).execute();
 
-        Event patch = new Event();
-        if (hasText(req.getTitle())) patch.setSummary(req.getTitle());
-        if (req.getDescription() != null) patch.setDescription(req.getDescription());
+        Event patch = new Event().setSummary(req.getTitle());
+        patch.setDescription(req.getDescription() != null ? req.getDescription() : "");
 
-        boolean changeTime = hasText(req.getDate()) || hasText(req.getStartTime()) || req.getDurationMinutes() != null;
-        if (changeTime) {
-            boolean existingAllDay = existing.getStart().getDate() != null;
-
-            if (existingAllDay && hasText(req.getDate())) {
-                DateTime date = new DateTime(req.getDate());
-                patch.setStart(new EventDateTime().setDate(date));
-                patch.setEnd(new EventDateTime().setDate(date));
-            } else if (!existingAllDay) {
-                ZonedDateTime existingStart = ZonedDateTime.ofInstant(
-                    Instant.ofEpochMilli(existing.getStart().getDateTime().getValue()), ZONE);
-                ZonedDateTime existingEnd = ZonedDateTime.ofInstant(
-                    Instant.ofEpochMilli(existing.getEnd().getDateTime().getValue()), ZONE);
-                long existingDuration = Duration.between(existingStart, existingEnd).toMinutes();
-
-                LocalDate newDate = hasText(req.getDate())
-                    ? LocalDate.parse(req.getDate()) : existingStart.toLocalDate();
-                LocalTime newTime = hasText(req.getStartTime())
-                    ? LocalTime.parse(req.getStartTime(), DateTimeFormatter.ofPattern("HH:mm"))
-                    : existingStart.toLocalTime();
-                long newDuration = req.getDurationMinutes() != null ? req.getDurationMinutes() : existingDuration;
-
-                ZonedDateTime newStart = ZonedDateTime.of(newDate, newTime, ZONE);
-                ZonedDateTime newEnd = newStart.plusMinutes(newDuration);
-
-                patch.setStart(new EventDateTime().setDateTime(toDateTime(newStart)).setTimeZone(TIMEZONE));
-                patch.setEnd(new EventDateTime().setDateTime(toDateTime(newEnd)).setTimeZone(TIMEZONE));
-            }
+        if (Boolean.TRUE.equals(req.getAllDay())) {
+            DateTime date = new DateTime(req.getDate());
+            patch.setStart(new EventDateTime().setDate(date));
+            patch.setEnd(new EventDateTime().setDate(date));
+        } else {
+            ZonedDateTime start = buildZonedDateTime(req.getDate(), req.getStartTime());
+            ZonedDateTime end = buildZonedDateTime(req.getDate(), req.getEndTime());
+            patch.setStart(new EventDateTime().setDateTime(toDateTime(start)).setTimeZone(TIMEZONE));
+            patch.setEnd(new EventDateTime().setDateTime(toDateTime(end)).setTimeZone(TIMEZONE));
         }
 
-        Event updated = service.events().patch("primary", req.getEventId(), patch).execute();
+        Event updated = service.events().patch(PRIMARY_CALENDAR, req.getEventId(), patch).execute();
         return new CalendarData(List.of(toSummary(updated, "updated")));
     }
 
