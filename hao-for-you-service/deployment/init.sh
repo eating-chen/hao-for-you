@@ -26,4 +26,4 @@ fi
 
 echo "Ollama model ${MODEL} is ready."
 docker compose -f "${COMPOSE_FILE}" up -d --build "${API_SERVICE}"
-echo "API is running on http://localhost:8008"
+echo "API is running on http://localhost:8080"

@@ -11,7 +11,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Map;
+
+import com.haoforyou.dto.HaoforyouServiceApiRequest;
+import com.haoforyou.dto.HaoforyouServiceApiResponse;
 
 /**
  * hao-for-you-service 的 HTTP 客戶端。
@@ -28,6 +30,9 @@ public class HaoServiceClient {
 
     public HaoServiceClient(AppProperties appProperties, ObjectMapper objectMapper) {
         this.httpClient = HttpClient.newBuilder()
+            // 強制 HTTP/1.1：預設 HTTP/2 會對明文連線送 h2c upgrade，
+            // uvicorn 不支援 → "Unsupported upgrade request" 並導致 422
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(10))
             .build();
         this.objectMapper = objectMapper;
@@ -41,28 +46,35 @@ public class HaoServiceClient {
      * @param userMessage 使用者原始訊息
      * @return LLM 回覆文字
      */
-    // TODO 連結llm server的路徑
-    public String generate(String userMessage) {
+    public String generate(String userMessage, String userId) {
         try {
-            String body = objectMapper.writeValueAsString(Map.of("prompt", userMessage));
+            HaoforyouServiceApiRequest requestPayload = new HaoforyouServiceApiRequest(
+                userId, // userId 可以為 null，service 端不需要
+                "line", // platform 可以固定為 "line"
+                userMessage
+            );
+            // 必須用 Jackson 序列化成 JSON，record.toString() 不是合法 JSON 會導致 422
+            String body = objectMapper.writeValueAsString(requestPayload);
 
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(serviceUrl + "/test_ollama"))
+                .uri(URI.create(serviceUrl + "/v1/chat"))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .timeout(Duration.ofSeconds(120))
                 .build();
 
-            log.info("HaoServiceClient.generate → {}/test_ollama", serviceUrl);
+            log.info("HaoServiceClient.generate → {}/v1/chat | body={}", serviceUrl, body);
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+            HaoforyouServiceApiResponse apiResponse = objectMapper.readValue(response.body(), HaoforyouServiceApiResponse.class);
             // FastAPI 回傳 JSON 字串時帶有引號（例如 "\"回覆內容\""），需反序列化
-            String raw = response.body().trim();
-            if (raw.startsWith("\"") && raw.endsWith("\"")) {
-                return objectMapper.readValue(raw, String.class);
+            if (apiResponse.success()){
+                String raw = apiResponse.response();
+                return raw;
+            } else {
+                log.error("HaoServiceClient.generate failed: {}", apiResponse);
+                return "抱歉，連線到 AI 服務有誤，請確認問題後再試。";
             }
-            return raw;
-
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("HaoServiceClient.generate interrupted: {}", e.getMessage(), e);

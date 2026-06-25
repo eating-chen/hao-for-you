@@ -21,28 +21,6 @@ class BaseConfig:
         DB_PATH = "chat_memory.db"
         DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
-    class DatabaseConfig:
-        """database config"""
-        database_url = _getenv("DATABASE_URL", default="sqlite+aiosqlite:///./hao.db")
-        # 對話記憶保留的最大輪數（1輪 = user + assistant 各一筆）
-        max_conversation_turns = 10
-
-    class GoogleConfig:
-        """Google OAuth 2.0 config"""
-        client_id = _getenv("GOOGLE_CLIENT_ID")
-        client_secret = _getenv("GOOGLE_CLIENT_SECRET")
-        # 本地開發用 localhost，部署時換成 ngrok 或正式 domain
-        redirect_uri = _getenv(
-            "GOOGLE_REDIRECT_URI",
-            default="http://localhost:8008/auth/google/callback",
-        )
-        scopes = [
-            "https://www.googleapis.com/auth/calendar",
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "openid",
-            "https://www.googleapis.com/auth/userinfo.email",
-        ]
-
     class ModelConfig:
         """model config"""
         system_prompt = SYSTEM_PROMPT

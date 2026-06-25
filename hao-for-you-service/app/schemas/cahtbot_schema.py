@@ -1,9 +1,6 @@
 """interface for schema"""
-<<<<<<< HEAD:hao-for-you-service/app/schemas/cahtbot_schema.py
-=======
 from langgraph.graph import MessagesState
 from typing import List, Optional
->>>>>>> hao-for-you-remote/feature/eating-env_setup:app/schemas/cahtbot_schema.py
 from pydantic import BaseModel, Field
 
 
