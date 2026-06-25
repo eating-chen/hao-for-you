@@ -96,7 +96,7 @@ public class LineBotController {
         try {
             // 確保使用者存在（如果不存在就創建）
             contextService.getOrCreateUser(userId);
-            String reply = haoServiceClient.generate(userText);
+            String reply = haoServiceClient.generate(userText, userId);
 
             messagingApiClient.replyMessage(new ReplyMessageRequest(
                     replyToken,

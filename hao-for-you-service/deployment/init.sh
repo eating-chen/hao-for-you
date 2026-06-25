@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-MODEL="${1:-${OLLAMA_MODEL:-qwen3.5:0.8b}}"
+MODEL="${1:-${OLLAMA_MODEL:-qwen3.5:4b}}"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yaml}"
 OLLAMA_SERVICE="${OLLAMA_SERVICE:-ollama}"
@@ -26,4 +26,4 @@ fi
 
 echo "Ollama model ${MODEL} is ready."
 docker compose -f "${COMPOSE_FILE}" up -d --build "${API_SERVICE}"
-echo "API is running on http://localhost:8008"
+echo "API is running on http://localhost:8080"

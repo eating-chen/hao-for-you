@@ -1,101 +1,87 @@
-"""LLM provider abstraction layer"""
-import json
-import urllib.request
-from abc import ABC, abstractmethod
+from typing import Any
 
 from app.core.config import config
+from app.manager.promptManager import PromptManager
 from app.service.logger_service import logger, error_logger
+# from app.service.google_service import create_calendar_event
+from langchain_core.messages import ToolMessage
+from app.service.chat_service import run_chat
+from app.schemas.cahtbot_schema import ChatRequest, ChatResponse
 
+class OllamaModelManager:
+    """Ollama model manager"""
 
-# ──────────────────────────────────────────────
-# Abstract base
-# ──────────────────────────────────────────────
+    @staticmethod
+    def generate_response(request: Any, body: ChatRequest) -> str:
 
-class BaseLLMProvider(ABC):
-    """所有 LLM provider 的抽象介面"""
+        # tools = [create_calendar_event]
+        # tools_by_name = {item.name: item for item in tools}
 
-    @abstractmethod
-    def generate(self, prompt: str) -> str:
-        """單輪生成：prompt → response string"""
+        # llm = ChatOllama(
+        #     model=config.ModelConfig.ollama_model,
+        #     base_url=config.ModelConfig.ollama_host,
+        #     temperature=config.ModelConfig.generate_config['temperature'],
+        #     num_predict=config.ModelConfig.generate_config['num_predict'],
+        #     top_p=config.ModelConfig.generate_config['top_p'],
+        #     repeat_penalty=config.ModelConfig.generate_config['repeat_penalty'],
+        #     reasoning=config.ModelConfig.generate_config['reasoning'],
+        #     validate_model_on_init=True,
+        # )
+        # llm_with_tools = llm.bind_tools(tools)
 
-    @abstractmethod
-    def chat(self, messages: list[dict]) -> str:
-        """多輪對話：messages 格式為 [{"role": "user/assistant/system", "content": "..."}]"""
+        # messages = PromptManager.build_prompt(prompt)
 
-
-# ──────────────────────────────────────────────
-# Ollama implementation
-# ──────────────────────────────────────────────
-
-class OllamaProvider(BaseLLMProvider):
-    """Ollama 本地 LLM provider"""
-
-    def _post(self, endpoint: str, payload: dict) -> dict:
-        """發送 HTTP POST 到 Ollama，回傳 parsed JSON"""
-        url = config.ModelConfig.ollama_host + endpoint
-        request = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=120) as response:
-            return json.loads(response.read().decode("utf-8"))
-
-    def generate(self, prompt: str) -> str:
-        """
-        使用 /api/generate（單輪）
-        適合：意圖分類、參數萃取等需要結構化輸出的場景
-        """
-        payload = {
-            "model": config.ModelConfig.ollama_model,
-            "prompt": prompt,
-            "stream": False,
-            "raw": False,
-            "think": False,
-            "options": config.ModelConfig.generate_config,
-        }
         try:
-            logger.info(
-                "Ollama generate: host=%s, model=%s",
-                config.ModelConfig.ollama_host,
-                config.ModelConfig.ollama_model,
+            answer = run_chat(
+                graph=request.app.state.graph,
+                user_id=body.user_id,
+                session_id=body.platform + "-" + body.user_id,  # ex: line-U123456789
+                user_input=body.message,
+                platform=body.platform
             )
-            data = self._post("/api/generate", payload)
-            return data.get("response", "")
-        except Exception as e:
-            error_logger.exception("Ollama generate error: %s", e)
-            return "抱歉，我現在暫時無法連線到 AI 服務，請稍後再試。"
+        #     response = llm_with_tools.invoke(messages)
+        #     print("\n=== FIRST MODEL RESPONSE ===")
+        #     print(response.content)
+        #     if response.tool_calls:
+        #         messages.append(response)
+        #         for tool_call in response.tool_calls:
+        #             tool_name = tool_call["name"]
+        #             selected_tool = tools_by_name.get(tool_name)
+        #             if selected_tool is None:
+        #                 result = f"Unknown tool: {tool_name}"
+        #             else:
+        #                 result = selected_tool.invoke(tool_call["args"])
 
-    def chat(self, messages: list[dict]) -> str:
-        """
-        使用 /api/chat（多輪對話）
-        messages 格式：[{"role": "system|user|assistant", "content": "..."}]
-        適合：帶有對話歷史的一般聊天
-        """
-        payload = {
-            "model": config.ModelConfig.ollama_model,
-            "messages": messages,
-            "stream": False,
-            "think": False,
-            "options": config.ModelConfig.generate_config,
-        }
-        try:
-            logger.info(
-                "Ollama chat: host=%s, model=%s, turns=%d",
-                config.ModelConfig.ollama_host,
-                config.ModelConfig.ollama_model,
-                len(messages),
+        #             print(f"\n=== EXECUTING TOOL: {tool_name} ===")
+        #             print(result)
+        #             messages.append(
+        #                 ToolMessage(
+        #                     content=str(result),
+        #                     tool_call_id=tool_call["id"],
+        #                 )
+        #             )
+        #         response = llm_with_tools.invoke(messages)
+        #         print("\n=== FINAL MODEL RESPONSE ===")
+        #         print(response.content)
+            data = ChatResponse(
+                success=True,
+                user_id=body.user_id,
+                session_id=body.platform + "-" + body.user_id,
+                platform=body.platform,
+                response=answer,
             )
-            data = self._post("/api/chat", payload)
-            return data.get("message", {}).get("content", "")
         except Exception as e:
-            error_logger.exception("Ollama chat error: %s", e)
-            return "抱歉，我現在暫時無法連線到 AI 服務，請稍後再試。"
+            error_logger.exception(f"Error calling Ollama API: {e}")
+            data = ChatResponse(
+                success=False,
+                user_id=body.user_id,
+                session_id=body.platform + "-" + body.user_id,
+                platform=body.platform,
+                response="抱歉，我現在暫時無法連線到 AI 服務，請稍後再試。",
+            )
+        
+        return data
+    
 
 
-# ──────────────────────────────────────────────
-# Singleton（全域共用同一個 provider）
-# ──────────────────────────────────────────────
-
-llm: BaseLLMProvider = OllamaProvider()
+    

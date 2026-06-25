@@ -104,17 +104,17 @@ uv run python run.py --dev
 
 - 預設會啟動在：
 ```text
-http://localhost:8008
+http://localhost:8080
 ```
 
 - 本地測試的話模型需要先用 ollama 指令起一個自己的model，到 `.env` 裡面去設定 `OLLAMA_MODEL`，ex: qwen3.5:0.8b
 
-- 可以透過 http://localhost:8008/docs 去看 api 文件(FastAPI seagger UI)
+- 可以透過 http://localhost:8080/docs 去看 api 文件(FastAPI seagger UI)
 
 - 可以透過 FastAPI seagger UI 自己打 api 或是透過 curl 測試ollama:
 ```bash
 curl -X 'POST' \
-  'http://localhost:8008/test_ollama' \
+  'http://localhost:8080/test_ollama' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
