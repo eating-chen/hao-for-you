@@ -7,6 +7,12 @@ import com.haoforyou.dto.GoogleApiResponse;
 import com.haoforyou.model.GoogleToken;
 import com.haoforyou.service.CalendarApiService;
 import com.haoforyou.service.GoogleAuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -15,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
 
+@Tag(name = "Google Calendar", description = "Google Calendar 查詢 / 新增 / 修改事件")
 @RestController
 @RequestMapping("/google/calendar")
 public class CalendarApiController {
@@ -29,8 +36,42 @@ public class CalendarApiController {
         this.calendarApiService = calendarApiService;
     }
 
+    @Operation(summary = "查詢 Calendar 事件", description = "支援日期區間（date + date_to）、單一日期或關鍵字搜尋，預設回傳最近 5 筆")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "查詢成功，data 為 CalendarData（事件列表）"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "使用者尚未連結 Google 帳號，或 token 已失效需重新連結",
+            content = @Content(
+                mediaType = "application/json",
+                examples = {
+                    @ExampleObject(
+                        name = "尚未連結 Google 帳號",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"GOOGLE_NOT_LINKED\", \"message\": \"此用戶尚未連結 Google 帳號\"}}"
+                    ),
+                    @ExampleObject(
+                        name = "Token 已失效",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"TOKEN_REFRESH_FAILED\", \"message\": \"Google 授權已失效，請重新連結帳號\"}}"
+                    )
+                }
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "Google API 呼叫失敗",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(
+                    value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"GOOGLE_API_ERROR\", \"message\": \"Google API 呼叫失敗：...\"}}"
+                )
+            )
+        )
+    })
     @PostMapping("/query")
-    public ResponseEntity<GoogleApiResponse<?>> query(@RequestBody GoogleApiRequest req) {
+    public ResponseEntity<GoogleApiResponse<CalendarData>> query(@RequestBody GoogleApiRequest req) {
         Optional<GoogleToken> tokenOpt = googleAuthService.getToken(req.getLineUserId());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -50,8 +91,59 @@ public class CalendarApiController {
         }
     }
 
+    @Operation(summary = "新增 Calendar 事件", description = "必填：line_user_id、title、date。非全天事件（all_day 非 true）需額外提供 start_time")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "新增成功，data 為 CalendarData（包含新建立的事件）"
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "缺少必填欄位",
+            content = @Content(
+                mediaType = "application/json",
+                examples = {
+                    @ExampleObject(
+                        name = "缺少 title 或 date",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"MISSING_REQUIRED_FIELD\", \"message\": \"title 和 date 為必填欄位\"}}"
+                    ),
+                    @ExampleObject(
+                        name = "非全天事件缺少 start_time",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"MISSING_REQUIRED_FIELD\", \"message\": \"非全天事件需提供 start_time\"}}"
+                    )
+                }
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "使用者尚未連結 Google 帳號，或 token 已失效需重新連結",
+            content = @Content(
+                mediaType = "application/json",
+                examples = {
+                    @ExampleObject(
+                        name = "尚未連結 Google 帳號",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"GOOGLE_NOT_LINKED\", \"message\": \"此用戶尚未連結 Google 帳號\"}}"
+                    ),
+                    @ExampleObject(
+                        name = "Token 已失效",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"TOKEN_REFRESH_FAILED\", \"message\": \"Google 授權已失效，請重新連結帳號\"}}"
+                    )
+                }
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "Google API 呼叫失敗",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(
+                    value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"GOOGLE_API_ERROR\", \"message\": \"Google API 呼叫失敗：...\"}}"
+                )
+            )
+        )
+    })
     @PostMapping("/create")
-    public ResponseEntity<GoogleApiResponse<?>> create(@RequestBody GoogleApiRequest req) {
+    public ResponseEntity<GoogleApiResponse<CalendarData>> create(@RequestBody GoogleApiRequest req) {
         Optional<GoogleToken> tokenOpt = googleAuthService.getToken(req.getLineUserId());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -79,8 +171,52 @@ public class CalendarApiController {
         }
     }
 
+    @Operation(summary = "修改 Calendar 事件", description = "必填：line_user_id、event_id。其餘欄位（title、date 等）依需要帶入要覆蓋的內容")
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "修改成功，data 為 CalendarData（更新後的事件）"
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "缺少必填欄位 event_id",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(
+                    value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"MISSING_REQUIRED_FIELD\", \"message\": \"event_id 為必填欄位\"}}"
+                )
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "使用者尚未連結 Google 帳號，或 token 已失效需重新連結",
+            content = @Content(
+                mediaType = "application/json",
+                examples = {
+                    @ExampleObject(
+                        name = "尚未連結 Google 帳號",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"GOOGLE_NOT_LINKED\", \"message\": \"此用戶尚未連結 Google 帳號\"}}"
+                    ),
+                    @ExampleObject(
+                        name = "Token 已失效",
+                        value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"TOKEN_REFRESH_FAILED\", \"message\": \"Google 授權已失效，請重新連結帳號\"}}"
+                    )
+                }
+            )
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "Google API 呼叫失敗",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(
+                    value = "{\"success\": false, \"data\": null, \"error\": {\"code\": \"GOOGLE_API_ERROR\", \"message\": \"Google API 呼叫失敗：...\"}}"
+                )
+            )
+        )
+    })
     @PostMapping("/modify")
-    public ResponseEntity<GoogleApiResponse<?>> modify(@RequestBody GoogleApiRequest req) {
+    public ResponseEntity<GoogleApiResponse<CalendarData>> modify(@RequestBody GoogleApiRequest req) {
         Optional<GoogleToken> tokenOpt = googleAuthService.getToken(req.getLineUserId());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

@@ -11,6 +11,10 @@ import com.linecorp.bot.webhook.model.CallbackRequest;
 import com.linecorp.bot.webhook.model.Event;
 import com.linecorp.bot.webhook.model.MessageEvent;
 import com.linecorp.bot.webhook.model.TextMessageContent;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 @RequiredArgsConstructor
+@Tag(name = "LINE Bot", description = "LINE Webhook 接收與訊息處理")
 @RestController
 public class LineBotController {
 
@@ -40,6 +45,7 @@ public class LineBotController {
      * Health check
      * GET /
      */
+    @Operation(summary = "Health Check", description = "檢查服務是否運行正常")
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of(
@@ -48,8 +54,10 @@ public class LineBotController {
         ));
     }
 
+    @Operation(summary = "LINE Webhook", description = "接收 LINE Webhook 事件")
     @PostMapping("/webhook")
     public ResponseEntity<Void> callback(
+            @Parameter(description = "LINE Webhook 簽名，用於驗證請求的合法性, 由 LINE 自動帶入", required = true)
             @RequestHeader("x-line-signature") String signature,
             @RequestBody byte[] body) {
 
