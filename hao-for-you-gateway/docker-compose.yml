@@ -22,6 +22,8 @@ services:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # container 內 DB 要用 service 名稱 db，覆蓋 .env 裡的 localhost
+      DB_URL: jdbc:postgresql://db:5432/haoforyou
       # gateway 在容器內，要連到「另一包 compose 的」hao-for-you-service（跑在 host 8080）
       HAO_SERVICE_URL: http://host.docker.internal:8080
     extra_hosts:

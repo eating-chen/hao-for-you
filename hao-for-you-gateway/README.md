@@ -48,6 +48,9 @@ Hao For You 與 LINE Bot 串接之 gateway，負責管理對外 API、記錄使�
 | POST | `/google/calendar/create` | 新增 Google Calendar 事件 |
 | POST | `/google/calendar/modify` | 修改 Google Calendar 事件 |
 
+### Swagger API 規格說明
+啟動Gateway後開啟網頁：http://localhost:8008/swagger-ui/index.html
+
 ### 資料庫 Schema（Postgresql）
 
 #### `users`
@@ -135,6 +138,12 @@ DB_PASSWORD=haoforyou
 > `.env` 會由 spring-dotenv 自動載入；預設啟動 `dev` profile。
 
 ### 3. 啟動 PostgreSQL
+
+postgresql 啟動與停止
+```bash
+brew services start postgresql@16
+brew services stop postgresql@16
+```
 
 本機若未安裝 Postgres，可用 Docker 只起一個 DB 容器：
 
