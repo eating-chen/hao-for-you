@@ -1,8 +1,8 @@
 package com.haoforyou.controller;
 
 import com.google.api.client.auth.oauth2.TokenResponseException;
-import com.haoforyou.dto.GoogleApiRequest;
 import com.haoforyou.dto.GoogleApiResponse;
+import com.haoforyou.dto.GoogleMailApiRequest;
 import com.haoforyou.dto.MailData;
 import com.haoforyou.model.GoogleToken;
 import com.haoforyou.service.GoogleAuthService;
@@ -68,7 +68,7 @@ public class MailController {
         )
     })
     @PostMapping("/query")
-    public ResponseEntity<GoogleApiResponse<MailData>> query(@RequestBody GoogleApiRequest req) {
+    public ResponseEntity<GoogleApiResponse<MailData>> query(@RequestBody GoogleMailApiRequest req) {
         Optional<GoogleToken> tokenOpt = googleAuthService.getToken(req.getLineUserId());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

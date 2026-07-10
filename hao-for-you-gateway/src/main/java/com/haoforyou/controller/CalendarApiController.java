@@ -2,7 +2,7 @@ package com.haoforyou.controller;
 
 import com.google.api.client.auth.oauth2.TokenResponseException;
 import com.haoforyou.dto.CalendarData;
-import com.haoforyou.dto.GoogleApiRequest;
+import com.haoforyou.dto.GoogleCalendarApiRequest;
 import com.haoforyou.dto.GoogleApiResponse;
 import com.haoforyou.model.GoogleToken;
 import com.haoforyou.service.CalendarApiService;
@@ -71,7 +71,7 @@ public class CalendarApiController {
         )
     })
     @PostMapping("/query")
-    public ResponseEntity<GoogleApiResponse<CalendarData>> query(@RequestBody GoogleApiRequest req) {
+    public ResponseEntity<GoogleApiResponse<CalendarData>> query(@RequestBody GoogleCalendarApiRequest req) {
         Optional<GoogleToken> tokenOpt = googleAuthService.getToken(req.getLineUserId());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -143,7 +143,7 @@ public class CalendarApiController {
         )
     })
     @PostMapping("/create")
-    public ResponseEntity<GoogleApiResponse<CalendarData>> create(@RequestBody GoogleApiRequest req) {
+    public ResponseEntity<GoogleApiResponse<CalendarData>> create(@RequestBody GoogleCalendarApiRequest req) {
         Optional<GoogleToken> tokenOpt = googleAuthService.getToken(req.getLineUserId());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -216,7 +216,7 @@ public class CalendarApiController {
         )
     })
     @PostMapping("/modify")
-    public ResponseEntity<GoogleApiResponse<CalendarData>> modify(@RequestBody GoogleApiRequest req) {
+    public ResponseEntity<GoogleApiResponse<CalendarData>> modify(@RequestBody GoogleCalendarApiRequest req) {
         Optional<GoogleToken> tokenOpt = googleAuthService.getToken(req.getLineUserId());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

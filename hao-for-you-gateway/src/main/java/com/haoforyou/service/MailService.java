@@ -7,11 +7,17 @@ import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
 import com.haoforyou.dto.MailData;
 import com.haoforyou.dto.MessageSummary;
-import com.haoforyou.dto.GoogleApiRequest;
+import com.haoforyou.controller.GoogleServiceController;
+import com.haoforyou.dto.GoogleMailApiRequest;
 import com.haoforyou.model.GoogleToken;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -20,12 +26,14 @@ import java.util.List;
 public class MailService {
 
     private final GoogleAuthService googleAuthService;
+    private static final Logger log = LoggerFactory.getLogger(MailService.class);
+
 
     public MailService(GoogleAuthService googleAuthService) {
         this.googleAuthService = googleAuthService;
     }
 
-    public MailData query(GoogleToken token, GoogleApiRequest req) throws Exception {
+    public MailData query(GoogleToken token, GoogleMailApiRequest req) throws Exception {
         Gmail gmail = googleAuthService.buildGmailService(token);
 
         String q = buildQuery(req);
@@ -51,12 +59,28 @@ public class MailService {
         return new MailData(summaries);
     }
 
-    private String buildQuery(GoogleApiRequest req) {
+    private static final DateTimeFormatter GMAIL_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+
+    private String buildQuery(GoogleMailApiRequest req) {
         StringBuilder q = new StringBuilder();
         if (hasText(req.getKeyword())) q.append(req.getKeyword()).append(" ");
         if (hasText(req.getFrom())) q.append("from:").append(req.getFrom()).append(" ");
         if (Boolean.TRUE.equals(req.getUnreadOnly())) q.append("is:unread ");
+        appendDateFilter(q, req);
         return q.toString().trim();
+    }
+
+    /** Gmail 的 after: 含當天、before: 不含當天，區間結束日要 +1 天才會把 dateTo 當天也含進去 */
+    private void appendDateFilter(StringBuilder q, GoogleMailApiRequest req) {
+        if (!hasText(req.getDate())) {
+            return;
+        }
+
+        LocalDate from = LocalDate.parse(req.getDate());
+        LocalDate to = hasText(req.getDateTo()) ? LocalDate.parse(req.getDateTo()) : from;
+
+        q.append("after:").append(from.format(GMAIL_DATE_FORMAT)).append(" ");
+        q.append("before:").append(to.plusDays(1).format(GMAIL_DATE_FORMAT)).append(" ");
     }
 
     private MessageSummary toSummary(Message msg) {

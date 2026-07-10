@@ -7,7 +7,7 @@ import com.google.api.services.calendar.model.EventDateTime;
 import com.google.api.services.calendar.model.Events;
 import com.haoforyou.dto.CalendarData;
 import com.haoforyou.dto.EventSummary;
-import com.haoforyou.dto.GoogleApiRequest;
+import com.haoforyou.dto.GoogleCalendarApiRequest;
 import com.haoforyou.model.GoogleToken;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +21,7 @@ public class CalendarApiService {
     private static final String TIMEZONE = "Asia/Taipei";
     private static final ZoneId ZONE = ZoneId.of(TIMEZONE);
     private static final String PRIMARY_CALENDAR = "primary";
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm[:ss]");
 
     private final GoogleAuthService googleAuthService;
 
@@ -28,7 +29,7 @@ public class CalendarApiService {
         this.googleAuthService = googleAuthService;
     }
 
-    public CalendarData query(GoogleToken token, GoogleApiRequest req) throws Exception {
+    public CalendarData query(GoogleToken token, GoogleCalendarApiRequest req) throws Exception {
         Calendar service = googleAuthService.buildCalendarService(token);
 
         Calendar.Events.List request = service.events().list(PRIMARY_CALENDAR)
@@ -64,7 +65,7 @@ public class CalendarApiService {
         return new CalendarData(summaries);
     }
 
-    public CalendarData create(GoogleToken token, GoogleApiRequest req) throws Exception {
+    public CalendarData create(GoogleToken token, GoogleCalendarApiRequest req) throws Exception {
         Calendar service = googleAuthService.buildCalendarService(token);
 
         // 組成要新增到日曆的物件
@@ -86,7 +87,7 @@ public class CalendarApiService {
         return new CalendarData(List.of(toSummary(created, "created")));
     }
 
-    public CalendarData modify(GoogleToken token, GoogleApiRequest req) throws Exception {
+    public CalendarData modify(GoogleToken token, GoogleCalendarApiRequest req) throws Exception {
         Calendar service = googleAuthService.buildCalendarService(token);
 
         Event patch = new Event().setSummary(req.getTitle());
@@ -130,7 +131,7 @@ public class CalendarApiService {
     private ZonedDateTime buildZonedDateTime(String date, String time) {
         return ZonedDateTime.of(
             LocalDate.parse(date),
-            LocalTime.parse(time, DateTimeFormatter.ofPattern("HH:mm")),
+            LocalTime.parse(time, TIME_FORMATTER),
             ZONE
         );
     }
