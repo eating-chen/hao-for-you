@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 public class GoogleCalendarApiRequest {
 
-    @Schema(description = "LINE 用戶 ID", example = "U1234567890abcdef")
+    @Schema(description = "LINE 用戶 ID", example = "UtestUser123456789")
     @JsonProperty("line_user_id")
     private String lineUserId;
 
