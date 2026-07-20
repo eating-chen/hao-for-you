@@ -11,7 +11,7 @@ from app.service.logger_service import logger
 
 
 engine = create_async_engine(
-    config.DatabaseConfig.database_url,
+    config.DatabaseConfig.SQLALCHEMY_DATABASE_URL,
     echo=False,
     future=True,
 )

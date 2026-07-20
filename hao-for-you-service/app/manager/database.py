@@ -7,7 +7,7 @@ from app.core.config import config
 
 
 class DatabaseManager:
-    """Async SQLite database manager."""
+    """Async PostgreSQL database manager for application tables."""
 
     def __init__(self, db_url: str):
         try:
@@ -25,6 +25,11 @@ class DatabaseManager:
         pass
 
     async def init_db(self):
+        # Register the existing application models before creating metadata.
+        from app.models import conversation_messages  # noqa: F401
+        from app.models import conversation_sessions  # noqa: F401
+        from app.models import user  # noqa: F401
+
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
@@ -46,4 +51,4 @@ class DatabaseManager:
             raise Exception(f"Failed to disconnect from database: {str(exc)}") from exc
 
 
-db_manager = DatabaseManager(config.DatabaseConfig.DATABASE_URL)
+db_manager = DatabaseManager(config.DatabaseConfig.SQLALCHEMY_DATABASE_URL)

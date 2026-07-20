@@ -1,30 +1,33 @@
 import os
-from app.core.prompt_constant import SYSTEM_PROMPT
+from app.core.prompt_constant import SUMMARY_PROMPT, SYSTEM_PROMPT
 
 class BaseConfig:
 
-    # class GoogleCalendarConfig:
-    #     SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
-    #     TOKEN_FILE = Path(os.getenv("GOOGLE_TOKEN_FILE", ".data/google_calendar_minimal_token.json"))
-    #     CREDENTIALS_FILE = Path(os.getenv("DEFAULT_CREDENTIALS_FILE", ""))
-    #     TIMEZONE = "Asia/Taipei"
-    # class LineConfig:
-    #     """line bot config"""
-    #     channel_secret = os.getenv("LINE_CHANNEL_SECRET", "channel_secret")
-    #     channel_access_token = os.getenv(
-    #         "LINE_CHANNEL_ACCESS_TOKEN",
-    #         "channel_access_token",
-    #     )
+    class AgentConfig:
+        """Version checkpoint state across incompatible agent changes."""
+        state_version = os.getenv("AGENT_STATE_VERSION", "v1")
 
     class DatabaseConfig:
         """database config"""
-        DB_PATH = "chat_memory.db"
-        DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
+        DATABASE_URL = os.getenv(
+            "DATABASE_URL",
+            "postgresql://haoforyou:haoforyou@localhost:5433/haoforyou?sslmode=disable",
+        )
+        SQLALCHEMY_DATABASE_URL = DATABASE_URL.replace(
+            "postgresql://",
+            "postgresql+psycopg://",
+            1,
+        )
+        SETUP_CHECKPOINTER = os.getenv("SETUP_CHECKPOINTER", "true").lower() == "true"
 
     class ModelConfig:
         """model config"""
         system_prompt = SYSTEM_PROMPT
+        summary_prompt = SUMMARY_PROMPT
         ollama_model = os.getenv("OLLAMA_MODEL", "qwen3.5:4b")
+        summary_model = os.getenv("SUMMARY_MODEL", ollama_model)
+        summary_trigger_messages = int(os.getenv("SUMMARY_TRIGGER_MESSAGES", "30"))
+        summary_keep_messages = int(os.getenv("SUMMARY_KEEP_MESSAGES", "20"))
         timeout = 10
         generate_config = {
             'temperature': 0.1,

@@ -46,6 +46,8 @@
 - FastAPI server health check
 - Echo API
 - Ollama API 測試 endpoint
+- PostgreSQL 業務資料與 LangGraph checkpoint 持久化
+- `create_agent` 與 `SummarizationMiddleware` 對話摘要
 - LINE Bot webhook callback
 - Docker Compose 啟動 API 與 Ollama
 - 使用 `uv` 管理 Python dependency
@@ -67,11 +69,17 @@ ENV=dev
 LINE_CHANNEL_SECRET=
 LINE_CHANNEL_ACCESS_TOKEN=
 OLLAMA_MODEL=qwen3.5:0.8b
+SUMMARY_MODEL=qwen3.5:0.8b
+DATABASE_URL=postgresql://haoforyou:haoforyou@localhost:5433/haoforyou?sslmode=disable
+SUMMARY_TRIGGER_MESSAGES=30
+SUMMARY_KEEP_MESSAGES=20
+LANGGRAPH_STRICT_MSGPACK=true
 ```
 
 - Docker Compose 部署時，API container 會使用：
 ```env
 ENV=prod
+AGENT_STATE_VERSION=v1
 OLLAMA_BASE_URL=http://ollama:11434
 ```
 `app/core/config.py` 目前的預設行為：
@@ -99,6 +107,8 @@ cd hao-for-you
 
 - 啟動 dev api server：
 ```bash
+docker compose -f deployment/docker-compose.yaml up -d ai-postgres
+uv run python init_checkpointer.py
 uv run python run.py --dev
 ```
 
@@ -132,7 +142,7 @@ uv run pytest
 
 ## Docker 啟動
 
-- 啟動 API 與 Ollama，並初始化 model(預設是 qwen3.5:0.8b)：
+- 啟動 API、PostgreSQL 與 Ollama，並初始化 model（預設是 qwen3.5:0.8b）：
 ```bash
 ./deployment/init.sh <your-local-model>
 ```

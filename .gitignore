@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.pkl
 *.lock
+.agents
 GenAI_Translate_database.db
 
 UploadAPI/app/uploaded_files_dev/

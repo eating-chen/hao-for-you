@@ -1,6 +1,5 @@
 """access to FInishInfo data"""
-from fastapi import APIRouter, HTTPException, Request, status, Body
-from app.service.chat_service import build_default_graph
+from fastapi import APIRouter, Request, status
 from app.schemas.cahtbot_schema import ChatRequest, ChatResponse, EchoInfoSchema
 from app.manager.modelManager import OllamaModelManager
 
@@ -44,17 +43,7 @@ def echo(prompt: str):
     response_model=ChatResponse,
     summary="回覆使用者的問題"
 )
-def chat(request: Request, body: ChatRequest):
-
-    if request.app.state.graph is None:
-        try:
-            request.app.state.graph = build_default_graph()
-        except Exception as exc:
-            raise HTTPException(
-                status_code=503,
-                detail=f"chat model is not available: {exc}",
-            ) from exc
-
-    reply_obj = OllamaModelManager.generate_response(request, body)
+async def chat(request: Request, body: ChatRequest):
+    reply_obj = await OllamaModelManager.generate_response(request, body)
 
     return reply_obj

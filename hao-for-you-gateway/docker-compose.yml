@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: haoforyou
       POSTGRES_USER: haoforyou
       POSTGRES_PASSWORD: haoforyou
+    ports:
+      - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +27,7 @@ services:
       # container 內 DB 要用 service 名稱 db，覆蓋 .env 裡的 localhost
       DB_URL: jdbc:postgresql://db:5432/haoforyou
       # gateway 在容器內，要連到「另一包 compose 的」hao-for-you-service（跑在 host 8080）
-      HAO_SERVICE_URL: http://host.docker.internal:8080
+      HAO_SERVICE_URL: http://api:8080
     extra_hosts:
       # Linux 上讓 host.docker.internal 可解析（Docker Desktop 內建，這行確保跨平台）
       - "host.docker.internal:host-gateway"
@@ -33,6 +35,14 @@ services:
       db:
         condition: service_healthy
     restart: "on-failure:3"
+    networks:
+        - default
+        - deployment
 
 volumes:
   pg-data:
+
+networks:
+    deployment:
+      external: true
+      name: deployment_default
