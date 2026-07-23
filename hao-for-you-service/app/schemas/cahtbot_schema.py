@@ -4,7 +4,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChatRequest(BaseModel):
-    user_id: str = Field(..., description="Java users.id")
+    user_id: str = Field(
+        ...,
+        description="平台使用者 ID；platform=line 時必須是 LINE userId",
+    )
     platform: str = Field(default="line", description="line / web / discord / telegram")
     message: str = Field(..., description="使用者訊息")
     session_id: Optional[str] = Field(

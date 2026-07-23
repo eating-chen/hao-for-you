@@ -37,6 +37,11 @@ class BaseConfig:
             'reasoning': False,
         }
 
+    class GatewayConfig:
+        """hao-for-you-gateway connection settings."""
+        base_url = os.getenv("GATEWAY_BASE_URL", "http://localhost:8008")
+        timeout_seconds = float(os.getenv("GATEWAY_TIMEOUT_SECONDS", "10"))
+
 
 class DevConfig(BaseConfig):
     """dev config"""
