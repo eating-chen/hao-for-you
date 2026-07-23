@@ -111,6 +111,11 @@ cd hao-for-you-gateway
 docker compose up -d --build
 ```
 
+### 3. Log 查找
+```bash
+docker compose logs gateway
+```
+
 ## 本地環境開發流程
 
 ### 1. 確認有執行環境套件

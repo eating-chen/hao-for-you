@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: haoforyou
       POSTGRES_PASSWORD: haoforyou
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -15,7 +15,7 @@ services:
       timeout: 3s
       retries: 10
 
-  app:
+  gateway:
     build: .
     image: haoforyou:latest
     ports:

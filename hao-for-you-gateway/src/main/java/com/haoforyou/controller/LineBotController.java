@@ -42,15 +42,20 @@ public class LineBotController {
     private final String algorithm = "HmacSHA256";
 
     /**
-     * Health check
-     * GET /
+     * Health check，順便檢查 gateway 是否能連通 hao-for-you-service
+     * GET /health
      */
-    @Operation(summary = "Health Check", description = "檢查服務是否運行正常")
+    @Operation(summary = "Health Check", description = "檢查服務是否運行正常，並回報與 hao-for-you-service 的連通狀態")
     @GetMapping("/health")
-    public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(Map.of(
+    public ResponseEntity<Map<String, Object>> health() {
+        boolean serviceUp = haoServiceClient.checkHealth();
+
+        return ResponseEntity.ok(Map.<String, Object>of(
             "message", "hao-for-you Java server is running",
-            "status",  "ok"
+            "status", "ok",
+            "service", Map.of(
+                "status", serviceUp ? "ok" : "down"
+            )
         ));
     }
 

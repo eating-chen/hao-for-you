@@ -19,7 +19,6 @@ services:
     build:
       context: ../
       dockerfile: Dockerfile.ollama
-    gpus: all
     environment:
       OLLAMA_KEEP_ALIVE: 30m
     ports:

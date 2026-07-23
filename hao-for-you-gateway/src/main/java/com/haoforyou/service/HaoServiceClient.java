@@ -40,6 +40,26 @@ public class HaoServiceClient {
     }
 
     /**
+     * 檢查 hao-for-you-service 是否可連通（打 service 根路徑的健康檢查）。
+     * 用短 timeout，避免拖慢 gateway 自己的 /health。
+     */
+    public boolean checkHealth() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(serviceUrl + "/"))
+                .GET()
+                .timeout(Duration.ofSeconds(5))
+                .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200;
+        } catch (Exception e) {
+            log.warn("HaoServiceClient.checkHealth failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * 呼叫 service 的 LLM 服務，路徑帶訂。
      * service 端會加上 system prompt 後送給 Ollama，適合一般對話。
      *
