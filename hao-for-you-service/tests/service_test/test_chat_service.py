@@ -5,8 +5,11 @@ from app.service.chat_service import (
     extract_summary,
     extract_tool_executions,
     make_thread_id,
+    build_current_system_prompt,
 )
 from app.core.config import config
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 class Message:
@@ -73,3 +76,12 @@ def test_extract_tool_executions_only_reads_latest_turn():
             result="30",
         )
     ]
+
+
+def test_current_system_prompt_includes_taipei_clock():
+    now = datetime(2026, 7, 21, 15, 30, tzinfo=ZoneInfo("Asia/Taipei"))
+
+    prompt = build_current_system_prompt(now)
+
+    assert "目前台北日期是 2026-07-21" in prompt
+    assert "時間是 15:30:00" in prompt

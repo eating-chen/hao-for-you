@@ -9,6 +9,7 @@ services:
       - ../.env
     environment:
       DATABASE_URL: postgresql://haoforyou:haoforyou@ai-postgres:5432/haoforyou?sslmode=disable
+      GATEWAY_BASE_URL: http://app:8008
     depends_on:
       ollama:
         condition: service_healthy
@@ -19,6 +20,7 @@ services:
     build:
       context: ../
       dockerfile: Dockerfile.ollama
+    # gpus: all
     environment:
       OLLAMA_KEEP_ALIVE: 30m
     ports:

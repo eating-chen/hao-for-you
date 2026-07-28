@@ -3,10 +3,16 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import SummarizationMiddleware
+from langchain.agents.middleware import (
+    ModelRequest,
+    SummarizationMiddleware,
+    dynamic_prompt,
+)
 from langchain_ollama import ChatOllama
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
@@ -19,6 +25,10 @@ from app.service.util_service import (
     multiply_operation,
     divide_operation
 )
+from app.service.agent_tools import AGENT_TOOLS, AgentContext
+from app.core.prompt_constant import SYSTEM_PROMPT
+
+TAIPEI_TIMEZONE = ZoneInfo("Asia/Taipei")
 
 @dataclass(frozen=True)
 class ToolExecution:
@@ -32,6 +42,22 @@ class ToolExecution:
 class ChatResult:
     response: str
     tool_executions: list[ToolExecution]
+
+
+def build_current_system_prompt(now: datetime | None = None) -> str:
+    current = now or datetime.now(tz=TAIPEI_TIMEZONE)
+    current = current.astimezone(TAIPEI_TIMEZONE)
+    return (
+        f"{SYSTEM_PROMPT}\n"
+        f"目前台北日期是 {current.date().isoformat()}，"
+        f"時間是 {current.strftime('%H:%M:%S')}。"
+    )
+
+
+@dynamic_prompt
+def current_datetime_prompt(request: ModelRequest[AgentContext]) -> str:
+    """Give every model call a fresh, timezone-specific clock."""
+    return build_current_system_prompt()
 
 
 def _build_model(model_name: str) -> ChatOllama:
@@ -52,10 +78,14 @@ def build_agent(checkpointer: BaseCheckpointSaver):
     model_config = config.ModelConfig
     return create_agent(
         model=_build_model(model_config.ollama_model),
-        tools=[add_operation, subtract_operation, multiply_operation, divide_operation],
+        tools=[
+            *AGENT_TOOLS,
+        ],
         system_prompt=model_config.system_prompt,
+        context_schema=AgentContext,
         checkpointer=checkpointer,
         middleware=[
+            current_datetime_prompt,
             SummarizationMiddleware(
                 model=_build_model(model_config.summary_model),
                 trigger=("messages", model_config.summary_trigger_messages),
@@ -160,6 +190,7 @@ async def run_chat(
     result = await agent.ainvoke(
         {"messages": [{"role": "user", "content": user_input}]},
         config=build_thread_config(user_id=user_id, session_id=session_id),
+        context=AgentContext(user_id=user_id, platform=platform),
     )
     messages = result["messages"]
     answer = extract_message_text(messages[-1])

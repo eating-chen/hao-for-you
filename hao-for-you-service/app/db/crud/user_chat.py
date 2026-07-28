@@ -17,7 +17,12 @@ async def ensure_user(
     platform: str = "line",
 ) -> int:
 
-    user = await db.scalar(select(User).where(User.user_id == user_id))
+    user = await db.scalar(
+        select(User).where(
+            User.user_id == user_id,
+            User.platform == platform,
+        )
+    )
     if user is None:
         user = User(
             user_id=user_id,
@@ -39,7 +44,12 @@ async def ensure_session(
     session_id: str,
     platform: str = "line",
 ) -> int:
-    user = await db.scalar(select(User).where(User.user_id == user_id))
+    user = await db.scalar(
+        select(User).where(
+            User.user_id == user_id,
+            User.platform == platform,
+        )
+    )
     if user is None:
         raise ValueError(f"ai_user not found: {user_id}")
 
@@ -164,4 +174,3 @@ async def get_all_messages_text(db: Session, session_id: str) -> str:
         conversation_text += f"{row.role}: {row.content}\n\n"
 
     return conversation_text
-
