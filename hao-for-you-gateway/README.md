@@ -41,12 +41,12 @@ Hao For You 與 LINE Bot 串接之 gateway，負責管理對外 API、記錄使�
 |---|---|---|
 | GET | `/health` | 健康檢查 |
 | POST | `/webhook` | LINE Webhook callback |
-| GET | `/google/auth` | 產生 Google OAuth 授權連結 |
+| GET | `/google/auth` | 產生 Google OAuth 授權連結（僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header） |
 | GET | `/google/auth/callback` | Google OAuth callback（換 token、存 DB、推播通知） |
-| POST | `/google/mail/query` | 查詢 Gmail 郵件 |
-| POST | `/google/calendar/query` | 查詢 Google Calendar 事件 |
-| POST | `/google/calendar/create` | 新增 Google Calendar 事件 |
-| POST | `/google/calendar/modify` | 修改 Google Calendar 事件 |
+| POST | `/google/mail/query` | 查詢 Gmail 郵件（僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header） |
+| POST | `/google/calendar/query` | 查詢 Google Calendar 事件（僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header） |
+| POST | `/google/calendar/create` | 新增 Google Calendar 事件（僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header） |
+| POST | `/google/calendar/modify` | 修改 Google Calendar 事件（僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header） |
 
 ### Swagger API 規格說明
 啟動Gateway後開啟網頁：http://localhost:8008/swagger-ui/index.html
@@ -90,10 +90,13 @@ cp .env.example .env
 | `GOOGLE_CLIENT_ID` | ✅ | Google Cloud OAuth 用戶端 ID |
 | `GOOGLE_CLIENT_SECRET` | ✅ | Google Cloud OAuth 用戶端密鑰 |
 | `GOOGLE_REDIRECT_URI` | ✅ | OAuth callback URL（開發用 `http://localhost:8008/google/auth/callback`） |
-| `OLLAMA_MODEL` | | AI 模型名稱，預設 `qwen3.5:0.8b` |
-| `OLLAMA_BASE_URL` | | Ollama 服務位址，dev 預設 `http://localhost:11434` |
 | `JASYPT_ENCRYPTOR_PASSWORD` | ✅ | Java 加密用key |
 | `PORT` | | 伺服器 port，預設 `8008` |
+| `DB_URL` | | PostgreSQL 連線字串，預設 `jdbc:postgresql://localhost:5432/haoforyou`（Docker 啟動時會被覆寫為 `db:5432`） |
+| `DB_USER` | ✅ | PostgreSQL 使用者名稱 |
+| `DB_PASSWORD` | ✅ | PostgreSQL 密碼 |
+| `INTERNAL_API_SECRET` | ✅ | 跨服務 HMAC 驗證共享密鑰，須與 hao-for-you-service 的 `INTERNAL_API_SECRET` 完全一致 |
+| `INTERNAL_API_TIMESTAMP_WINDOW` | | 跨服務 HMAC 簽章時間戳容許誤差秒數，預設 `300` |
 
 ---
 
