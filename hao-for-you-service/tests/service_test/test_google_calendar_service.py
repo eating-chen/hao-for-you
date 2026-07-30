@@ -8,15 +8,26 @@ from langchain_core.messages import HumanMessage
 from langchain.tools import ToolRuntime
 
 import app.service.agent_tools as agent_tools
+from app.core.config import config
+from app.service import internal_auth
 from app.service.agent_tools import AgentContext, create_google_calendar_event
 from app.service.google_calendar_service import CalendarToolResult, GoogleCalendarGateway
 
 
 FIXED_NOW = datetime(2026, 7, 21, 12, 0, tzinfo=ZoneInfo("Asia/Taipei"))
+FIXED_EPOCH = int(FIXED_NOW.timestamp())
+INTERNAL_SECRET = "gateway-test-secret"
 
 
 def fixed_now() -> datetime:
     return FIXED_NOW
+
+
+@pytest.fixture(autouse=True)
+def _pin_internal_secret(monkeypatch):
+    """All gateway calls sign with a known secret so signatures are verifiable."""
+    monkeypatch.setattr(config.SecurityConfig, "internal_api_secret", INTERNAL_SECRET)
+    monkeypatch.setattr(config.SecurityConfig, "internal_api_timestamp_window", 300)
 
 
 @pytest.mark.asyncio
@@ -204,4 +215,159 @@ async def test_create_event_rejects_invalid_time_range_without_gateway_call():
     )
 
     assert result.error_code == "INVALID_TIME_RANGE"
+    assert requests == []
+
+
+def _assert_signature_matches_sent_request(request: httpx.Request) -> None:
+    """The signature on the wire must verify against the exact bytes sent."""
+    ts = request.headers.get("X-Timestamp")
+    signature = request.headers.get("X-Signature")
+    assert ts is not None
+    assert signature is not None
+    assert internal_auth.verify(
+        secret=INTERNAL_SECRET,
+        timestamp=ts,
+        signature=signature,
+        method=request.method,
+        path=request.url.path,
+        body=request.content.decode("utf-8"),
+        window_seconds=300,
+        now=FIXED_EPOCH,
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_event_signs_the_exact_post_body_it_sends():
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200, json={"success": True, "data": {"event_id": "e1"}, "error": None}
+        )
+
+    gateway = GoogleCalendarGateway(
+        base_url="http://gateway.test",
+        transport=httpx.MockTransport(handler),
+        now_provider=fixed_now,
+    )
+    await gateway.create_event(
+        line_user_id="U123",
+        title="Meeting",
+        date="2026-10-01",
+        start_time="09:00:00",
+        end_time="17:00:00",
+    )
+
+    request = requests[0]
+    assert request.method == "POST"
+    assert request.url.path == "/google/calendar/create"
+    assert request.headers["X-Timestamp"] == str(FIXED_EPOCH)
+    _assert_signature_matches_sent_request(request)
+
+
+@pytest.mark.asyncio
+async def test_authorization_request_signs_get_with_empty_body():
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/google/calendar/create":
+            return httpx.Response(
+                401,
+                json={
+                    "success": False,
+                    "data": None,
+                    "error": {"code": "GOOGLE_NOT_LINKED", "message": "not linked"},
+                },
+            )
+        return httpx.Response(200, json={"auth_url": "https://accounts.google.com/x"})
+
+    gateway = GoogleCalendarGateway(
+        base_url="http://gateway.test",
+        transport=httpx.MockTransport(handler),
+        now_provider=fixed_now,
+    )
+    await gateway.create_event(
+        line_user_id="U123",
+        title="Meeting",
+        date="2026-10-01",
+        start_time="09:00:00",
+    )
+
+    auth_request = requests[1]
+    assert auth_request.method == "GET"
+    assert auth_request.url.path == "/google/auth"
+    assert auth_request.content == b""
+    # query string is intentionally excluded from the signature
+    assert auth_request.url.params["line_user_id"] == "U123"
+    _assert_signature_matches_sent_request(auth_request)
+
+
+@pytest.mark.asyncio
+async def test_create_event_authorization_fail_401_does_not_trigger_reauth():
+    """Signature-rejection 401 (AUTHORIZATION_FAIL) must not be treated as reauth."""
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            401,
+            json={
+                "success": False,
+                "data": None,
+                "error": {
+                    "code": "AUTHORIZATION_FAIL",
+                    "message": "內部服務驗證失敗",
+                },
+            },
+        )
+
+    gateway = GoogleCalendarGateway(
+        base_url="http://gateway.test",
+        transport=httpx.MockTransport(handler),
+        now_provider=fixed_now,
+    )
+    result = await gateway.create_event(
+        line_user_id="U123",
+        title="Meeting",
+        date="2026-10-01",
+        start_time="09:00:00",
+    )
+
+    assert result.status == "error"
+    assert result.error_code == "AUTHORIZATION_FAIL"
+    assert result.auth_url is None
+    # must NOT fall into the reauth flow -> only the create call, no /google/auth
+    assert [request.url.path for request in requests] == ["/google/calendar/create"]
+
+
+@pytest.mark.asyncio
+async def test_create_event_raises_when_internal_api_secret_is_empty(monkeypatch):
+    """空 secret 時 ``internal_auth.sign`` 拋 ``RuntimeError``；此例外發生在
+    ``httpx.RequestError`` try 區塊之外，因此不會被吞掉、也完全不會送出請求
+    （空 secret 不簽出請求）。
+    """
+    monkeypatch.setattr(config.SecurityConfig, "internal_api_secret", "")
+
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"success": True, "data": {}})
+
+    gateway = GoogleCalendarGateway(
+        base_url="http://gateway.test",
+        transport=httpx.MockTransport(handler),
+        now_provider=fixed_now,
+    )
+
+    with pytest.raises(RuntimeError, match="INTERNAL_API_SECRET is not configured"):
+        await gateway.create_event(
+            line_user_id="U123",
+            title="Meeting",
+            date="2026-10-01",
+            start_time="09:00:00",
+        )
+
     assert requests == []

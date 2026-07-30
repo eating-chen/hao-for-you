@@ -13,6 +13,8 @@ from langchain.agents.middleware import (
     SummarizationMiddleware,
     dynamic_prompt,
 )
+from langchain_aws import ChatBedrockConverse
+from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
@@ -26,6 +28,7 @@ from app.service.util_service import (
     divide_operation
 )
 from app.service.agent_tools import AGENT_TOOLS, AgentContext
+from app.service.logger_service import logger
 from app.core.prompt_constant import SYSTEM_PROMPT
 
 TAIPEI_TIMEZONE = ZoneInfo("Asia/Taipei")
@@ -60,16 +63,28 @@ def current_datetime_prompt(request: ModelRequest[AgentContext]) -> str:
     return build_current_system_prompt()
 
 
-def _build_model(model_name: str) -> ChatOllama:
+def _build_model(model_name: str) -> BaseChatModel:
     model_config = config.ModelConfig
+    generate_config = model_config.generate_config
+
+    if model_config.provider == "bedrock":
+        logger.info(f"Using Amazon Bedrock model: {model_name} in region {model_config.aws_region}")
+        # Claude on Bedrock rejects requests that set both temperature and top_p.
+        return ChatBedrockConverse(
+            model=model_name,
+            region_name=model_config.aws_region,
+            temperature=generate_config["temperature"],
+            max_tokens=generate_config["max_tokens"],
+        )
+
     return ChatOllama(
         model=model_name,
         base_url=model_config.ollama_host,
-        temperature=model_config.generate_config["temperature"],
-        num_predict=model_config.generate_config["num_predict"],
-        top_p=model_config.generate_config["top_p"],
-        repeat_penalty=model_config.generate_config["repeat_penalty"],
-        reasoning=model_config.generate_config["reasoning"],
+        temperature=generate_config["temperature"],
+        num_predict=generate_config["max_tokens"],
+        top_p=generate_config["top_p"],
+        repeat_penalty=generate_config["repeat_penalty"],
+        reasoning=generate_config["reasoning"],
     )
 
 
@@ -77,7 +92,7 @@ def build_agent(checkpointer: BaseCheckpointSaver):
     """Create the standard agent loop with persistent short-term memory."""
     model_config = config.ModelConfig
     return create_agent(
-        model=_build_model(model_config.ollama_model),
+        model=_build_model(model_config.model_name),
         tools=[
             *AGENT_TOOLS,
         ],

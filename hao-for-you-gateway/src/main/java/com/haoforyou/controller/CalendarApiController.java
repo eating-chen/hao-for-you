@@ -8,6 +8,8 @@ import com.haoforyou.model.GoogleToken;
 import com.haoforyou.service.CalendarApiService;
 import com.haoforyou.service.GoogleAuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -36,7 +38,21 @@ public class CalendarApiController {
         this.calendarApiService = calendarApiService;
     }
 
-    @Operation(summary = "查詢 Calendar 事件", description = "支援日期區間（date + date_to）、單一日期或關鍵字搜尋，預設回傳最近 5 筆")
+    @Operation(
+        summary = "查詢 Calendar 事件",
+        description = "支援日期區間（date + date_to）、單一日期或關鍵字搜尋，預設回傳最近 5 筆。"
+            + "此 endpoint 僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header。",
+        parameters = {
+            @Parameter(
+                name = "X-Timestamp", in = ParameterIn.HEADER, required = true,
+                description = "Unix epoch 秒，跨服務 HMAC 驗證用，需與 X-Signature 搭配"
+            ),
+            @Parameter(
+                name = "X-Signature", in = ParameterIn.HEADER, required = true,
+                description = "hex(HMAC-SHA256(INTERNAL_API_SECRET, X-Timestamp+\"\\n\"+METHOD+\"\\n\"+path+\"\\n\"+body))"
+            )
+        }
+    )
     @ApiResponses({
         @ApiResponse(
             responseCode = "200",
@@ -91,7 +107,21 @@ public class CalendarApiController {
         }
     }
 
-    @Operation(summary = "新增 Calendar 事件", description = "必填：line_user_id、title、date。非全天事件（all_day 非 true）需額外提供 start_time")
+    @Operation(
+        summary = "新增 Calendar 事件",
+        description = "必填：line_user_id、title、date。非全天事件（all_day 非 true）需額外提供 start_time。"
+            + "此 endpoint 僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header。",
+        parameters = {
+            @Parameter(
+                name = "X-Timestamp", in = ParameterIn.HEADER, required = true,
+                description = "Unix epoch 秒，跨服務 HMAC 驗證用，需與 X-Signature 搭配"
+            ),
+            @Parameter(
+                name = "X-Signature", in = ParameterIn.HEADER, required = true,
+                description = "hex(HMAC-SHA256(INTERNAL_API_SECRET, X-Timestamp+\"\\n\"+METHOD+\"\\n\"+path+\"\\n\"+body))"
+            )
+        }
+    )
     @ApiResponses({
         @ApiResponse(
             responseCode = "200",
@@ -171,7 +201,21 @@ public class CalendarApiController {
         }
     }
 
-    @Operation(summary = "修改 Calendar 事件", description = "必填：line_user_id、event_id。其餘欄位（title、date 等）依需要帶入要覆蓋的內容")
+    @Operation(
+        summary = "修改 Calendar 事件",
+        description = "必填：line_user_id、event_id。其餘欄位（title、date 等）依需要帶入要覆蓋的內容。"
+            + "此 endpoint 僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header。",
+        parameters = {
+            @Parameter(
+                name = "X-Timestamp", in = ParameterIn.HEADER, required = true,
+                description = "Unix epoch 秒，跨服務 HMAC 驗證用，需與 X-Signature 搭配"
+            ),
+            @Parameter(
+                name = "X-Signature", in = ParameterIn.HEADER, required = true,
+                description = "hex(HMAC-SHA256(INTERNAL_API_SECRET, X-Timestamp+\"\\n\"+METHOD+\"\\n\"+path+\"\\n\"+body))"
+            )
+        }
+    )
     @ApiResponses({
         @ApiResponse(
             responseCode = "200",

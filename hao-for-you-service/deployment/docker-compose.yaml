@@ -9,7 +9,11 @@ services:
       - ../.env
     environment:
       DATABASE_URL: postgresql://haoforyou:haoforyou@ai-postgres:5432/haoforyou?sslmode=disable
-      GATEWAY_BASE_URL: http://app:8008
+      GATEWAY_BASE_URL: http://gateway:8008
+    volumes:
+      # Lets boto3 inside the container read the host's `aws configure` credentials
+      # for Bedrock, without putting any AWS keys in .env.
+      - ~/.aws:/root/.aws:ro
     depends_on:
       ollama:
         condition: service_healthy

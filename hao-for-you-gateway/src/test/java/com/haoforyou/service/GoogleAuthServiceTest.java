@@ -81,6 +81,7 @@ class GoogleAuthServiceTest {
         appProperties = new AppProperties(
             new AppProperties.Google("client-id", "client-secret", "http://localhost/google/auth/callback"),
             new AppProperties.Conversation(10),
+            null,
             "system prompt",
             "http://hao-for-you-service"
         );

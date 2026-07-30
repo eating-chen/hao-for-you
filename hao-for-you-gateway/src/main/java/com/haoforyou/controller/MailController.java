@@ -9,6 +9,8 @@ import com.haoforyou.service.GoogleAuthService;
 import com.haoforyou.service.MailService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -37,7 +39,21 @@ public class MailController {
         this.mailService = mailService;
     }
 
-    @Operation(summary = "查詢 Gmail 郵件", description = "使用者需先連結 Google 帳號，才能查詢 Gmail 郵件")
+    @Operation(
+        summary = "查詢 Gmail 郵件",
+        description = "使用者需先連結 Google 帳號，才能查詢 Gmail 郵件。"
+            + "此 endpoint 僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header。",
+        parameters = {
+            @Parameter(
+                name = "X-Timestamp", in = ParameterIn.HEADER, required = true,
+                description = "Unix epoch 秒，跨服務 HMAC 驗證用，需與 X-Signature 搭配"
+            ),
+            @Parameter(
+                name = "X-Signature", in = ParameterIn.HEADER, required = true,
+                description = "hex(HMAC-SHA256(INTERNAL_API_SECRET, X-Timestamp+\"\\n\"+METHOD+\"\\n\"+path+\"\\n\"+body))"
+            )
+        }
+    )
     @ApiResponses({
         @ApiResponse(
             responseCode = "200",

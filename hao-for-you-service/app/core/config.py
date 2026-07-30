@@ -24,15 +24,26 @@ class BaseConfig:
         """model config"""
         system_prompt = SYSTEM_PROMPT
         summary_prompt = SUMMARY_PROMPT
+
+        # "ollama" (local dev, no AWS needed) or "bedrock" (Amazon Bedrock)
+        provider = os.getenv("MODEL_PROVIDER", "ollama")
+
         ollama_model = os.getenv("OLLAMA_MODEL", "qwen3.5:4b")
-        summary_model = os.getenv("SUMMARY_MODEL", ollama_model)
+        bedrock_model_id = os.getenv("BEDROCK_MODEL_ID", "")
+        aws_region = os.getenv("AWS_REGION", "us-east-1")
+
+        # Model identifier for whichever provider is active.
+        model_name = bedrock_model_id if provider == "bedrock" else ollama_model
+        summary_model = os.getenv("SUMMARY_MODEL", model_name)
+
         summary_trigger_messages = int(os.getenv("SUMMARY_TRIGGER_MESSAGES", "30"))
         summary_keep_messages = int(os.getenv("SUMMARY_KEEP_MESSAGES", "20"))
         timeout = 10
         generate_config = {
             'temperature': 0.1,
-            'num_predict': 256,
+            'max_tokens': 256,
             'top_p': 0.95,
+            # Ollama-only sampling knobs; ignored when provider="bedrock"
             'repeat_penalty': 1.15,
             'reasoning': False,
         }
@@ -41,6 +52,14 @@ class BaseConfig:
         """hao-for-you-gateway connection settings."""
         base_url = os.getenv("GATEWAY_BASE_URL", "http://localhost:8008")
         timeout_seconds = float(os.getenv("GATEWAY_TIMEOUT_SECONDS", "10"))
+
+    class SecurityConfig:
+        """Shared-secret settings for internal service-to-service HMAC auth."""
+        # 與 hao-for-you-gateway 共享同一把固定密鑰
+        internal_api_secret = os.getenv("INTERNAL_API_SECRET", "")
+        internal_api_timestamp_window = int(
+            os.getenv("INTERNAL_API_TIMESTAMP_WINDOW", "300")
+        )
 
 
 class DevConfig(BaseConfig):

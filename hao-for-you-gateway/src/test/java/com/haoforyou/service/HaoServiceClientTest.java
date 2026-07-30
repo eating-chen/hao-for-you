@@ -2,6 +2,7 @@ package com.haoforyou.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haoforyou.config.AppProperties;
+import com.haoforyou.security.InternalApiSigner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -20,6 +21,8 @@ import java.net.http.HttpResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,12 +47,15 @@ class HaoServiceClientTest {
     @Mock
     private HttpResponse<String> httpResponse;
 
+    @Mock
+    private InternalApiSigner signer;
+
     private HaoServiceClient client;
 
     @BeforeEach
     void setUp() {
-        AppProperties appProperties = new AppProperties(null, null, null, SERVICE_URL);
-        client = new HaoServiceClient(appProperties, new ObjectMapper());
+        AppProperties appProperties = new AppProperties(null, null, null, null, SERVICE_URL);
+        client = new HaoServiceClient(appProperties, new ObjectMapper(), signer);
         ReflectionTestUtils.setField(client, "httpClient", httpClient);
     }
 
@@ -72,8 +78,13 @@ class HaoServiceClientTest {
             assertThat(result).isTrue();
             ArgumentCaptor<HttpRequest> captor = ArgumentCaptor.forClass(HttpRequest.class);
             verify(httpClient).send(captor.capture(), bodyHandler());
-            assertThat(captor.getValue().uri().toString()).isEqualTo(SERVICE_URL + "/");
-            assertThat(captor.getValue().method()).isEqualTo("GET");
+            HttpRequest sentRequest = captor.getValue();
+            assertThat(sentRequest.uri().toString()).isEqualTo(SERVICE_URL + "/");
+            assertThat(sentRequest.method()).isEqualTo("GET");
+            // 健康檢查打的是 service 的開放端點，不應加簽
+            verify(signer, never()).sign(any(), any(), any());
+            assertThat(sentRequest.headers().firstValue("X-Timestamp")).isEmpty();
+            assertThat(sentRequest.headers().firstValue("X-Signature")).isEmpty();
         }
 
         @Test
@@ -118,6 +129,13 @@ class HaoServiceClientTest {
     @DisplayName("generate")
     class Generate {
 
+        @BeforeEach
+        void stubSigner() {
+            // generate() 的每個路徑都會先對 body 加簽，才送出請求
+            lenient().when(signer.sign(any(), any(), any()))
+                .thenReturn(new InternalApiSigner.SignedHeaders("1700000000", "deadbeefsignature"));
+        }
+
         @Test
         @DisplayName("happy path：service 回傳 success=true 時，應回傳 response 欄位內容，且打對 /v1/chat 並帶正確 JSON header")
         void success_returnsResponseText() throws Exception {
@@ -135,6 +153,32 @@ class HaoServiceClientTest {
             assertThat(sentRequest.method()).isEqualTo("POST");
             assertThat(sentRequest.headers().firstValue("Content-Type")).contains("application/json");
             assertThat(sentRequest.bodyPublisher()).isPresent();
+            // 加簽產出的兩個 header 應原封不動帶上請求
+            assertThat(sentRequest.headers().firstValue("X-Timestamp")).contains("1700000000");
+            assertThat(sentRequest.headers().firstValue("X-Signature")).contains("deadbeefsignature");
+        }
+
+        @Test
+        @DisplayName("加簽時應以 (\"POST\", \"/v1/chat\", body) 呼叫 signer，且簽的 body 與實際送出的 JSON body 完全一致")
+        void signsExactBodyWithPostAndChatPath() throws Exception {
+            when(httpResponse.body()).thenReturn("{\"success\":true,\"response\":\"ok\"}");
+            when(httpClient.send(any(HttpRequest.class), bodyHandler())).thenReturn(httpResponse);
+
+            client.generate("你好", "U42");
+
+            ArgumentCaptor<String> methodCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> pathCaptor = ArgumentCaptor.forClass(String.class);
+            ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+            verify(signer).sign(methodCaptor.capture(), pathCaptor.capture(), bodyCaptor.capture());
+
+            assertThat(methodCaptor.getValue()).isEqualTo("POST");
+            assertThat(pathCaptor.getValue()).isEqualTo("/v1/chat");
+            // 簽的 body 必須是實際送出的那份 JSON（含使用者訊息與 userId），確保對端驗簽會過
+            String signedBody = bodyCaptor.getValue();
+            String expectedBody = new ObjectMapper().writeValueAsString(
+                new com.haoforyou.dto.HaoforyouServiceApiRequest("U42", "line", "你好"));
+            assertThat(signedBody).isEqualTo(expectedBody);
+            assertThat(signedBody).contains("你好").contains("U42");
         }
 
         @Test

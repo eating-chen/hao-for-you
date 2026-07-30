@@ -4,6 +4,7 @@ import com.haoforyou.service.GoogleAuthService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -32,7 +33,21 @@ public class GoogleServiceController {
      * 產生 Google OAuth 授權連結
      * GET /auth/google?line_user_id=xxx
      */
-    @Operation(summary = "產生 Google OAuth 授權連結", description = "使用者點擊後會跳轉到 Google OAuth 頁面，並完成授權")
+    @Operation(
+        summary = "產生 Google OAuth 授權連結",
+        description = "使用者點擊後會跳轉到 Google OAuth 頁面，並完成授權。"
+            + "此 endpoint 僅供 hao-for-you-service 內部呼叫，需帶跨服務 HMAC 驗證 header。",
+        parameters = {
+            @Parameter(
+                name = "X-Timestamp", in = ParameterIn.HEADER, required = true,
+                description = "Unix epoch 秒，跨服務 HMAC 驗證用，需與 X-Signature 搭配"
+            ),
+            @Parameter(
+                name = "X-Signature", in = ParameterIn.HEADER, required = true,
+                description = "hex(HMAC-SHA256(INTERNAL_API_SECRET, X-Timestamp+\"\\n\"+METHOD+\"\\n\"+path+\"\\n\"+body))"
+            )
+        }
+    )
     @ApiResponse(
         responseCode = "200",
         description = "成功產生授權連結",

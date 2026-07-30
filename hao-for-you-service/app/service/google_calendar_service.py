@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from app.core.config import config
+from app.service import internal_auth
 
 
 REAUTH_ERROR_CODES = {"GOOGLE_NOT_LINKED", "TOKEN_REFRESH_FAILED"}
@@ -79,13 +80,24 @@ class GoogleCalendarGateway:
         }
         payload = {key: value for key, value in payload.items() if value is not None}
 
+        # 自行序列化並以 content 送出，確保簽的 body 與實際送出的 bytes 完全一致
+        body_str = json.dumps(payload, ensure_ascii=False)
+        headers = {
+            "Content-Type": "application/json",
+            **self._signed_headers("POST", "/google/calendar/create", body_str),
+        }
+
         try:
             async with httpx.AsyncClient(
                 base_url=self.base_url,
                 timeout=self.timeout,
                 transport=self.transport,
             ) as client:
-                response = await client.post("/google/calendar/create", json=payload)
+                response = await client.post(
+                    "/google/calendar/create",
+                    content=body_str,
+                    headers=headers,
+                )
                 body = self._json_body(response)
 
                 if response.status_code == 401:
@@ -204,9 +216,11 @@ class GoogleCalendarGateway:
         error_code: str,
     ) -> CalendarToolResult:
         try:
+            # GET 無 body；query string 不納入簽章，path 用 /google/auth
             response = await client.get(
                 "/google/auth",
                 params={"line_user_id": line_user_id},
+                headers=self._signed_headers("GET", "/google/auth", ""),
             )
             body = self._json_body(response)
         except httpx.RequestError:
@@ -229,6 +243,18 @@ class GoogleCalendarGateway:
             message="無法取得 Google 帳號授權連結，請稍後再試。",
             error_code="AUTH_URL_UNAVAILABLE",
         )
+
+    def _signed_headers(self, method: str, path: str, body: str) -> dict[str, str]:
+        """Build X-Timestamp / X-Signature headers for an internal gateway call."""
+        timestamp = int(self.now_provider().timestamp())
+        ts, signature = internal_auth.sign(
+            secret=config.SecurityConfig.internal_api_secret,
+            method=method,
+            path=path,
+            body=body,
+            timestamp=timestamp,
+        )
+        return {"X-Timestamp": ts, "X-Signature": signature}
 
     @staticmethod
     def _json_body(response: httpx.Response) -> dict[str, Any]:

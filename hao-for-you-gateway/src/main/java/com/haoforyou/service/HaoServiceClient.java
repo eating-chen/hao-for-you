@@ -2,6 +2,7 @@ package com.haoforyou.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.haoforyou.config.AppProperties;
+import com.haoforyou.security.InternalApiSigner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -27,8 +28,9 @@ public class HaoServiceClient {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String serviceUrl;
+    private final InternalApiSigner signer;
 
-    public HaoServiceClient(AppProperties appProperties, ObjectMapper objectMapper) {
+    public HaoServiceClient(AppProperties appProperties, ObjectMapper objectMapper, InternalApiSigner signer) {
         this.httpClient = HttpClient.newBuilder()
             // 強制 HTTP/1.1：預設 HTTP/2 會對明文連線送 h2c upgrade，
             // uvicorn 不支援 → "Unsupported upgrade request" 並導致 422
@@ -37,6 +39,7 @@ public class HaoServiceClient {
             .build();
         this.objectMapper = objectMapper;
         this.serviceUrl = appProperties.serviceUrl();
+        this.signer = signer;
     }
 
     /**
@@ -76,9 +79,14 @@ public class HaoServiceClient {
             // 必須用 Jackson 序列化成 JSON，record.toString() 不是合法 JSON 會導致 422
             String body = objectMapper.writeValueAsString(requestPayload);
 
+            // 對內部呼叫加簽：簽的 body 必須與實際送出的 body 完全一致，path 不含 query string
+            InternalApiSigner.SignedHeaders signed = signer.sign("POST", "/v1/chat", body);
+
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(serviceUrl + "/v1/chat"))
                 .header("Content-Type", "application/json")
+                .header("X-Timestamp", signed.timestamp())
+                .header("X-Signature", signed.signature())
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .timeout(Duration.ofSeconds(120))
                 .build();
