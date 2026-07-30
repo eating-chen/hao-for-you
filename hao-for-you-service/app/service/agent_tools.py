@@ -2,10 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import date as Date
-from datetime import datetime
 from typing import Annotated
-from zoneinfo import ZoneInfo
 
 from langchain.tools import ToolRuntime, tool
 from pydantic import Field
@@ -14,10 +11,7 @@ from app.service.google_calendar_service import (
     CalendarToolResult,
     GoogleCalendarGateway,
 )
-from app.service.calendar_date_resolver import resolve_calendar_date
-
-
-TAIPEI_TIMEZONE = ZoneInfo("Asia/Taipei")
+from app.service.google_mail_service import GmailToolResult, GoogleMailGateway
 
 
 @dataclass(frozen=True)
@@ -38,8 +32,9 @@ async def create_google_calendar_event(
         str,
         Field(
             description=(
-                "行程日期，格式 YYYY-MM-DD；使用者未指定年份時，"
-                "依目前台北日期選擇下一個尚未過去的日期"
+                "行程日期，格式 YYYY-MM-DD。可依 system prompt 提供的目前台北日期"
+                "解析使用者的相對日期；若無法可靠判斷年份，不可猜測，"
+                "應先詢問使用者正確年份"
             )
         ),
     ],
@@ -53,7 +48,8 @@ async def create_google_calendar_event(
         Field(
             description=(
                 "開始時間，24 小時制，格式 HH:MM:SS；"
-                "非全天行程必填，全天行程省略"
+                "非全天行程必填，全天行程省略；若無法可靠判斷時間，"
+                "不可猜測，應先詢問使用者正確時間"
             )
         ),
     ] = None,
@@ -71,7 +67,12 @@ async def create_google_calendar_event(
         Field(description="是否為全天行程；只有使用者明確表示全天時才設為 true"),
     ] = False,
 ) -> str:
-    """使用者要求新增 Google Calendar 行程時使用；若未授權則回傳授權網址。"""
+    """建立 Google Calendar 行程。
+
+    僅在日期、年份及非全天行程的開始時間都能可靠判斷時呼叫。
+    資訊不足或語意不明時，不可猜測或呼叫此工具，應先詢問使用者。
+    若未授權則回傳授權網址。
+    """
     if runtime.context.platform != "line":
         return CalendarToolResult(
             status="error",
@@ -79,50 +80,237 @@ async def create_google_calendar_event(
             error_code="UNSUPPORTED_PLATFORM",
         ).to_json()
 
-    try:
-        resolved_date = resolve_calendar_date(
-            user_text=_latest_user_text(runtime.state),
-            model_date=date,
-            today=_today_in_taipei(),
-        )
-    except ValueError as exc:
-        return CalendarToolResult(
-            status="error",
-            message=str(exc),
-            error_code="INVALID_USER_DATE",
-        ).to_json()
-
     result = await GoogleCalendarGateway().create_event(
         line_user_id=runtime.context.user_id,
         title=title,
-        date=resolved_date,
+        date=date,
         description=description,
         start_time=start_time,
         end_time=end_time,
         all_day=all_day,
     )
-    return replace(result, resolved_date=resolved_date).to_json()
+    return replace(result, resolved_date=date).to_json()
 
 
-def _latest_user_text(state: object) -> str:
-    if not isinstance(state, dict):
-        return ""
-    for message in reversed(state.get("messages", [])):
-        if getattr(message, "type", None) != "human":
-            continue
-        content = getattr(message, "content", "")
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            return "".join(
-                str(block.get("text", "")) if isinstance(block, dict) else str(block)
-                for block in content
+@tool
+async def query_google_calendar_events(
+    runtime: ToolRuntime[AgentContext],
+    date: Annotated[
+        str | None,
+        Field(
+            description=(
+                "查詢開始日期，格式 YYYY-MM-DD；查單日時只提供此欄位。"
+                "可依目前台北日期解析相對日期，未指定日期時省略"
             )
-    return ""
+        ),
+    ] = None,
+    date_to: Annotated[
+        str | None,
+        Field(
+            description=(
+                "查詢結束日期，格式 YYYY-MM-DD，包含當日；"
+                "只能搭配 date 使用，未指定日期範圍時省略"
+            )
+        ),
+    ] = None,
+    keyword: Annotated[
+        str | None,
+        Field(description="行程搜尋關鍵字；使用者未指定關鍵字時省略"),
+    ] = None,
+    limit: Annotated[
+        int,
+        Field(
+            ge=1,
+            le=20,
+            description="最多回傳幾筆行程，介於 1 到 20；使用者未指定時使用 5",
+        ),
+    ] = 5,
+) -> str:
+    """依日期區間或關鍵字查詢 Google Calendar 行程。"""
+    if runtime.context.platform != "line":
+        return CalendarToolResult(
+            status="error",
+            message="目前只有 LINE 使用者可以連結並查詢 Google Calendar。",
+            error_code="UNSUPPORTED_PLATFORM",
+        ).to_json()
+
+    result = await GoogleCalendarGateway().query_events(
+        line_user_id=runtime.context.user_id,
+        date=date,
+        date_to=date_to,
+        keyword=keyword,
+        limit=limit,
+    )
+    return result.to_json()
 
 
-def _today_in_taipei() -> Date:
-    return datetime.now(tz=TAIPEI_TIMEZONE).date()
+@tool
+async def modify_google_calendar_event(
+    event_id: Annotated[
+        str,
+        Field(
+            description=(
+                "Google Calendar 事件 ID，必須來自先前的查詢結果；"
+                "不知道 event_id 時不可猜測，應先查詢行程"
+            )
+        ),
+    ],
+    title: Annotated[
+        str,
+        Field(description="修改後的完整行程標題，不可自行增加使用者未提及的內容"),
+    ],
+    date: Annotated[
+        str,
+        Field(
+            description=(
+                "修改後的完整行程日期，格式 YYYY-MM-DD；若無法可靠判斷年份，"
+                "不可猜測，應先詢問使用者"
+            )
+        ),
+    ],
+    description: Annotated[
+        str,
+        Field(description="修改後的完整行程說明；沒有說明時傳入空字串"),
+    ],
+    all_day: Annotated[
+        bool,
+        Field(description="修改後是否為全天行程"),
+    ],
+    runtime: ToolRuntime[AgentContext],
+    start_time: Annotated[
+        str | None,
+        Field(
+            description=(
+                "修改後的開始時間，格式 HH:MM:SS；非全天行程必填，"
+                "無法判斷時應先詢問使用者"
+            )
+        ),
+    ] = None,
+    end_time: Annotated[
+        str | None,
+        Field(
+            description=(
+                "修改後的結束時間，格式 HH:MM:SS；非全天行程必填且必須晚於開始時間"
+            )
+        ),
+    ] = None,
+) -> str:
+    """修改一筆 Google Calendar 行程。
+
+    這是外部寫入操作。必須使用查詢結果中的 event_id，並提供修改後的完整事件
+    資料；缺少 event_id、日期或非全天行程時間時，不可猜測，應先查詢或詢問。
+    """
+    if runtime.context.platform != "line":
+        return CalendarToolResult(
+            status="error",
+            message="目前只有 LINE 使用者可以連結並修改 Google Calendar。",
+            error_code="UNSUPPORTED_PLATFORM",
+        ).to_json()
+
+    result = await GoogleCalendarGateway().modify_event(
+        line_user_id=runtime.context.user_id,
+        event_id=event_id,
+        title=title,
+        date=date,
+        description=description,
+        start_time=start_time,
+        end_time=end_time,
+        all_day=all_day,
+    )
+    return replace(result, resolved_date=date).to_json()
 
 
-AGENT_TOOLS = [create_google_calendar_event]
+@tool
+async def query_gmail_messages(
+    runtime: ToolRuntime[AgentContext],
+    date: Annotated[
+        str | None,
+        Field(
+            description=(
+                "郵件查詢開始日期，格式 YYYY-MM-DD；只查單日時僅提供此欄位。"
+                "使用者未指定日期時省略，不可自行增加日期條件"
+            )
+        ),
+    ] = None,
+    date_to: Annotated[
+        str | None,
+        Field(
+            description=(
+                "郵件查詢結束日期，格式 YYYY-MM-DD，包含當日；"
+                "只能搭配 date 使用，使用者未指定日期範圍時省略"
+            )
+        ),
+    ] = None,
+    keyword: Annotated[
+        str | None,
+        Field(
+            description=(
+                "郵件搜尋關鍵字，也可使用使用者明確要求的 Gmail 搜尋語法，"
+                "例如 subject:會議；未指定時省略"
+            )
+        ),
+    ] = None,
+    sender: Annotated[
+        str | None,
+        Field(description="寄件人電子郵件地址；使用者未指定寄件人時省略"),
+    ] = None,
+    unread_only: Annotated[
+        bool,
+        Field(description="是否只查未讀郵件；只有使用者要求未讀郵件時才設為 true"),
+    ] = False,
+    limit: Annotated[
+        int,
+        Field(
+            ge=1,
+            le=20,
+            description="最多回傳幾封郵件，介於 1 到 20；使用者未指定時使用 5",
+        ),
+    ] = 5,
+) -> str:
+    """依使用者提供的條件查詢 Gmail 郵件內容，不可自行增加搜尋條件。"""
+    if runtime.context.platform != "line":
+        return GmailToolResult(
+            status="error",
+            message="目前只有 LINE 使用者可以連結並查詢 Gmail。",
+            error_code="UNSUPPORTED_PLATFORM",
+        ).to_json()
+
+    return await _query_gmail(
+        runtime=runtime,
+        date=date,
+        date_to=date_to,
+        keyword=keyword,
+        sender=sender,
+        unread_only=unread_only,
+        limit=limit,
+    )
+
+
+async def _query_gmail(
+    *,
+    runtime: ToolRuntime[AgentContext],
+    date: str | None,
+    date_to: str | None,
+    keyword: str | None,
+    sender: str | None,
+    unread_only: bool,
+    limit: int,
+) -> str:
+    result = await GoogleMailGateway().query_messages(
+        line_user_id=runtime.context.user_id,
+        date=date,
+        date_to=date_to,
+        keyword=keyword,
+        sender=sender,
+        unread_only=unread_only,
+        limit=limit,
+    )
+    return result.to_json()
+
+
+AGENT_TOOLS = [
+    create_google_calendar_event,
+    query_google_calendar_events,
+    modify_google_calendar_event,
+    query_gmail_messages,
+]

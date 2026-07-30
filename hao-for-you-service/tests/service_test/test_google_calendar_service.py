@@ -1,14 +1,18 @@
 import json
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
-from langchain_core.messages import HumanMessage
 from langchain.tools import ToolRuntime
 
 import app.service.agent_tools as agent_tools
-from app.service.agent_tools import AgentContext, create_google_calendar_event
+from app.service.agent_tools import (
+    AgentContext,
+    create_google_calendar_event,
+    modify_google_calendar_event,
+    query_google_calendar_events,
+)
 from app.service.google_calendar_service import CalendarToolResult, GoogleCalendarGateway
 
 
@@ -117,8 +121,33 @@ def test_calendar_tool_describes_every_llm_parameter():
         assert '"description"' in serialized
 
 
+def test_calendar_query_and_modify_tools_hide_trusted_user_id():
+    for calendar_tool in (
+        query_google_calendar_events,
+        modify_google_calendar_event,
+    ):
+        assert "line_user_id" not in calendar_tool.args
+        assert "runtime" not in calendar_tool.args
+
+    assert set(query_google_calendar_events.args) == {
+        "date",
+        "date_to",
+        "keyword",
+        "limit",
+    }
+    assert set(modify_google_calendar_event.args) == {
+        "event_id",
+        "title",
+        "date",
+        "description",
+        "all_day",
+        "start_time",
+        "end_time",
+    }
+
+
 @pytest.mark.asyncio
-async def test_calendar_tool_overrides_model_year_from_original_user_text(
+async def test_calendar_tool_uses_model_date_without_keyword_resolution(
     monkeypatch,
 ):
     captured: dict = {}
@@ -129,13 +158,8 @@ async def test_calendar_tool_overrides_model_year_from_original_user_text(
             return CalendarToolResult(status="created", message="建立成功")
 
     monkeypatch.setattr(agent_tools, "GoogleCalendarGateway", FakeGateway)
-    monkeypatch.setattr(agent_tools, "_today_in_taipei", lambda: date(2026, 7, 21))
     runtime = ToolRuntime(
-        state={
-            "messages": [
-                HumanMessage(content="幫我新增 7/27 晚上6:00到7:00打球")
-            ]
-        },
+        state={"messages": []},
         context=AgentContext(user_id="U123", platform="line"),
         config={},
         stream_writer=lambda _: None,
@@ -151,8 +175,142 @@ async def test_calendar_tool_overrides_model_year_from_original_user_text(
         end_time="19:00",
     )
 
-    assert captured["date"] == "2026-07-27"
-    assert json.loads(raw_result)["resolved_date"] == "2026-07-27"
+    assert captured["date"] == "2025-12-31"
+    assert json.loads(raw_result)["resolved_date"] == "2025-12-31"
+
+
+@pytest.mark.asyncio
+async def test_query_events_sends_supported_filters_and_returns_events():
+    requests: list[httpx.Request] = []
+    events = [
+        {
+            "title": "會議",
+            "start": "2026-10-01T10:00:00+08:00",
+            "end": "2026-10-01T11:00:00+08:00",
+            "description": "會議將於下週舉行",
+            "status": "confirmed",
+            "event_id": "event_123",
+            "all_day": False,
+        }
+    ]
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={"success": True, "data": {"events": events}, "error": None},
+        )
+
+    gateway = GoogleCalendarGateway(
+        base_url="http://gateway.test",
+        transport=httpx.MockTransport(handler),
+        now_provider=fixed_now,
+    )
+    result = await gateway.query_events(
+        line_user_id="U123",
+        date="2026-10-01",
+        date_to="2026-10-05",
+        keyword="會議",
+        limit=10,
+    )
+
+    assert result.status == "success"
+    assert result.data == {"events": events}
+    assert [request.url.path for request in requests] == [
+        "/google/calendar/query"
+    ]
+    assert json.loads(requests[0].content) == {
+        "line_user_id": "U123",
+        "date": "2026-10-01",
+        "date_to": "2026-10-05",
+        "keyword": "會議",
+        "limit": 10,
+    }
+
+
+@pytest.mark.asyncio
+async def test_modify_event_sends_complete_event_and_returns_updated_event():
+    requests: list[httpx.Request] = []
+    updated_event = {
+        "title": "Meeting",
+        "start": "2026-10-01T09:00:00+08:00",
+        "end": "2026-10-01T17:00:00+08:00",
+        "description": "會議邀請",
+        "status": "updated",
+        "event_id": "event_123",
+        "all_day": False,
+    }
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "data": {"events": [updated_event]},
+                "error": None,
+            },
+        )
+
+    gateway = GoogleCalendarGateway(
+        base_url="http://gateway.test",
+        transport=httpx.MockTransport(handler),
+        now_provider=fixed_now,
+    )
+    result = await gateway.modify_event(
+        line_user_id="U123",
+        event_id="event_123",
+        title="Meeting",
+        date="2026-10-01",
+        description="會議邀請",
+        start_time="09:00:00",
+        end_time="17:00:00",
+        all_day=False,
+    )
+
+    assert result.status == "modified"
+    assert result.data == {"events": [updated_event]}
+    assert [request.url.path for request in requests] == [
+        "/google/calendar/modify"
+    ]
+    assert json.loads(requests[0].content) == {
+        "line_user_id": "U123",
+        "event_id": "event_123",
+        "title": "Meeting",
+        "date": "2026-10-01",
+        "description": "會議邀請",
+        "start_time": "09:00:00",
+        "end_time": "17:00:00",
+        "all_day": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_modify_event_rejects_missing_end_time_without_request():
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"success": True, "data": {}})
+
+    gateway = GoogleCalendarGateway(
+        base_url="http://gateway.test",
+        transport=httpx.MockTransport(handler),
+        now_provider=fixed_now,
+    )
+    result = await gateway.modify_event(
+        line_user_id="U123",
+        event_id="event_123",
+        title="Meeting",
+        date="2026-10-01",
+        description="",
+        start_time="09:00:00",
+        all_day=False,
+    )
+
+    assert result.status == "error"
+    assert result.error_code == "MISSING_END_TIME"
+    assert requests == []
 
 
 @pytest.mark.asyncio
